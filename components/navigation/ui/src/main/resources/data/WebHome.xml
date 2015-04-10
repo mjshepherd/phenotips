@@ -95,7 +95,7 @@ $!value
       </enableImperialUnitSystem>
       <livetableColumns>
         <cache>0</cache>
-        <customDisplay>//Meta information: //
+        <customDisplay>//{{translation key="phenotips.DBConfigurationClass.metaInfo" /}}//
 
 {{velocity output=false}}
 #set ($docFields = ['doc.name', 'doc.creator', 'doc.author', 'doc.creationDate', 'doc.date'])
@@ -117,7 +117,7 @@ $!value
 &lt;/ul&gt;
 {{/html}}{{/velocity}}
 
-//Patient information: //
+//{{translation key="phenotips.DBConfigurationClass.patientInfo" /}}//
 
 {{include document="PhenoTips.DBConfigurationClassDisplayer" /}}</customDisplay>
         <disabled>0</disabled>
@@ -2188,6 +2188,69 @@ $xwiki.ssfx.use('js/xwiki/table/livetable.css', {'colorTheme' : "$xwiki.getSpace
     </property>
     <property>
       <title>$services.localization.render('phenotips.homepage.sharedData.title') (% style="float: right;" %)[[$services.localization.render('phenotips.homepage.sharedData.allData')&gt;&gt;data.AllData]]</title>
+    </property>
+  </object>
+  <object>
+    <name>data.WebHome</name>
+    <number>4</number>
+    <className>XWiki.GadgetClass</className>
+    <guid>1e68b67f-d9eb-456d-a634-b5926fd7edd8</guid>
+    <class>
+      <name>XWiki.GadgetClass</name>
+      <customClass/>
+      <customMapping/>
+      <defaultViewSheet/>
+      <defaultEditSheet/>
+      <defaultWeb/>
+      <nameField/>
+      <validationScript/>
+      <content>
+        <disabled>0</disabled>
+        <editor>---</editor>
+        <name>content</name>
+        <number>2</number>
+        <picker>0</picker>
+        <prettyName>content</prettyName>
+        <rows>5</rows>
+        <size>40</size>
+        <unmodifiable>0</unmodifiable>
+        <validationMessage/>
+        <validationRegExp/>
+        <classType>com.xpn.xwiki.objects.classes.TextAreaClass</classType>
+      </content>
+      <position>
+        <disabled>0</disabled>
+        <name>position</name>
+        <number>3</number>
+        <picker>0</picker>
+        <prettyName>position</prettyName>
+        <size>30</size>
+        <unmodifiable>0</unmodifiable>
+        <validationMessage/>
+        <validationRegExp/>
+        <classType>com.xpn.xwiki.objects.classes.StringClass</classType>
+      </position>
+      <title>
+        <disabled>0</disabled>
+        <name>title</name>
+        <number>1</number>
+        <picker>0</picker>
+        <prettyName>title</prettyName>
+        <size>30</size>
+        <unmodifiable>0</unmodifiable>
+        <validationMessage/>
+        <validationRegExp/>
+        <classType>com.xpn.xwiki.objects.classes.StringClass</classType>
+      </title>
+    </class>
+    <property>
+      <content>{{include document= 'PhenoTips.MendelianSearch'}}</content>
+    </property>
+    <property>
+      <position>1,3</position>
+    </property>
+    <property>
+      <title>Gene Genie</title>
     </property>
   </object>
   <object>
