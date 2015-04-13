@@ -865,6 +865,7 @@
     var pointer = this;
 
     this.killTimeout();
+    this.clearHighlight();
 
     // create holding div
     //
@@ -5501,6 +5502,7 @@ div.resultContainer div.sourceContent.loading {
   text-shadow: 0 0 5px #ccc;
   cursor: pointer;
   font-size: .8em;
+  margin-right: 0.5em;
   vertical-align: middle;
 }
 .expand-tool.locked {
