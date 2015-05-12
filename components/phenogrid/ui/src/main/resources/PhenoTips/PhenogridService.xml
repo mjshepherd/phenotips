@@ -44,7 +44,7 @@
       #set ($discard = $data.add("$i"))
     #end
   #set ($negativeData = $collectionstool.getArrayList() )
-#set ($results = $services.phenogrid.get($data, $negativeData, 50))
+#set ($results = $services.phenogrid.get($data, $negativeData, 30))
 #if ($xcontext.action == 'get')
    $response.setContentType('application/json')
 #end

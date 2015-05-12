@@ -147,7 +147,7 @@
       </use>
     </class>
     <property>
-      <cache>long</cache>
+      <cache>default</cache>
     </property>
     <property>
       <code>require(['jquery'], function ($) {
@@ -259,12 +259,11 @@ $(document).ready(function() {
       </use>
     </class>
     <property>
-      <cache>long</cache>
+      <cache>default</cache>
     </property>
     <property>
       <code>#phen_vis {
-  padding: 30px;
-  background: red;
+  text-shadow: none;
 }</code>
     </property>
     <property>
@@ -362,6 +361,7 @@ $xwiki.ssfx.use('uicomponents/phenogrid/css/jquery-ui.css')##
 $xwiki.ssfx.use('uicomponents/phenogrid/css/phenogrid.css')##
 $xwiki.ssfx.use('uicomponents/phenogrid/css/stickytooltip.css')##
 $xwiki.jsx.use('PhenoTips.Phenogrid')##
+$xwiki.ssx.use('PhenoTips.Phenogrid')##
 ===Phenogrid===
 {{html}}
 #set($phenotype = $doc.getObject('PhenoTips.PatientClass').getProperty("phenotype").getValue())
