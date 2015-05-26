@@ -2,20 +2,18 @@
  * See the NOTICE file distributed with this work for additional
  * information regarding copyright ownership.
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This software is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.phenotips.export.internal;
 
@@ -24,7 +22,7 @@ import org.phenotips.data.Feature;
 import org.phenotips.data.FeatureMetadatum;
 import org.phenotips.data.Patient;
 import org.phenotips.data.PatientData;
-import org.phenotips.ontology.internal.solr.SolrOntologyTerm;
+import org.phenotips.vocabulary.internal.solr.SolrVocabularyTerm;
 
 import org.xwiki.bridge.DocumentAccessBridge;
 import org.xwiki.model.reference.DocumentReference;
@@ -401,12 +399,14 @@ public class DataToCellConverter
         DataCell topCell = new DataCell("Identifiers", 0, 0, StyleOption.HEADER);
         topCell.addStyle(StyleOption.LARGE_HEADER);
         section.addCell(topCell);
+        int x = 0;
         if (present.contains("id")) {
-            DataCell idCell = new DataCell("Report ID", 0, 1, StyleOption.HEADER);
+            DataCell idCell = new DataCell("Report ID", x, 1, StyleOption.HEADER);
             section.addCell(idCell);
+            x++;
         }
         if (present.contains("external_id")) {
-            DataCell externalIdCell = new DataCell("Patient Identifier", 1, 1, StyleOption.HEADER);
+            DataCell externalIdCell = new DataCell("Patient Identifier", x, 1, StyleOption.HEADER);
             section.addCell(externalIdCell);
         }
         // section.finalizeToMatrix();
@@ -422,12 +422,14 @@ public class DataToCellConverter
         }
         DataSection section = new DataSection();
 
+        int x = 0;
         if (present.contains("id")) {
-            DataCell cell = new DataCell(patient.getId(), 0, 0);
+            DataCell cell = new DataCell(patient.getId(), x, 0);
             section.addCell(cell);
+            x++;
         }
         if (present.contains("external_id")) {
-            DataCell cell = new DataCell(patient.getExternalId(), 1, 0);
+            DataCell cell = new DataCell(patient.getExternalId(), x, 0);
             section.addCell(cell);
         }
         // section.finalizeToMatrix();
@@ -670,12 +672,21 @@ public class DataToCellConverter
         PatientData<List<String>> ethnicities = patient.getData("ethnicity");
         Integer x = 0;
         if (present.contains("global_mode_of_inheritance")) {
-            PatientData<SolrOntologyTerm> globalControllers = patient.<SolrOntologyTerm>getData("global-qualifiers");
-            SolrOntologyTerm modeTerm =
+            PatientData<List<SolrVocabularyTerm>> globalControllers = patient.getData("global-qualifiers");
+            List<SolrVocabularyTerm> modeTermList =
                 globalControllers != null ? globalControllers.get("global_mode_of_inheritance") : null;
-            String mode = modeTerm != null ? modeTerm.getName() : "";
-            DataCell cell = new DataCell(mode, x, 0);
-            bodySection.addCell(cell);
+            int y = 0;
+            if (modeTermList != null && !modeTermList.isEmpty()) {
+                for (SolrVocabularyTerm term : modeTermList) {
+                    String mode = term != null ? term.getName() : "";
+                    DataCell cell = new DataCell(mode, x, y);
+                    bodySection.addCell(cell);
+                    y++;
+                }
+            } else {
+                DataCell cell = new DataCell("", x, y);
+                bodySection.addCell(cell);
+            }
             x++;
         }
         if (present.contains("miscarriages")) {
@@ -1149,10 +1160,20 @@ public class DataToCellConverter
 
         Integer x = 0;
         if (present.contains("global_age_of_onset")) {
-            PatientData<SolrOntologyTerm> qualifiers = patient.getData("global-qualifiers");
-            SolrOntologyTerm ageOfOnset = qualifiers != null ? qualifiers.get("global_age_of_onset") : null;
-            DataCell cell = new DataCell(ageOfOnset != null ? ageOfOnset.getName() : "", x, 0);
-            bodySection.addCell(cell);
+            PatientData<List<SolrVocabularyTerm>> qualifiers = patient.getData("global-qualifiers");
+            List<SolrVocabularyTerm> ageOfOnsetList = qualifiers != null ? qualifiers.get("global_age_of_onset") : null;
+            int y = 0;
+            if (ageOfOnsetList != null && !ageOfOnsetList.isEmpty()) {
+                for (SolrVocabularyTerm term : ageOfOnsetList) {
+                    String onset = term != null ? term.getName() : "";
+                    DataCell cell = new DataCell(onset, x, y);
+                    bodySection.addCell(cell);
+                    y++;
+                }
+            } else {
+                DataCell cell = new DataCell("", x, y);
+                bodySection.addCell(cell);
+            }
             x++;
         }
         if (present.contains("medical_history")) {
@@ -1210,6 +1231,85 @@ public class DataToCellConverter
             Integer isNormalValue = isNormal != null ? isNormal.get("unaffected") : 0;
             DataCell cell = new DataCell(ConversionHelpers.integerToStrBool(isNormalValue), 0, 0);
             bodySection.addCell(cell);
+        }
+
+        return bodySection;
+    }
+
+
+    public DataSection isSolvedHeader(Set<String> enabledFields) throws Exception
+    {
+        String sectionName = "isSolved";
+
+        // Must be linked to keep order; in other sections as well
+        Map<String, String> fieldToHeaderMap = new LinkedHashMap<>();
+        fieldToHeaderMap.put("solved", "Solved");
+        fieldToHeaderMap.put("solved__pubmed_id", "PubMed ID");
+        fieldToHeaderMap.put("solved__gene_id", "Gene ID");
+        fieldToHeaderMap.put("solved__notes", "Notes");
+
+        Set<String> present = new LinkedHashSet<>();
+        for (String fieldId : fieldToHeaderMap.keySet()) {
+            if (enabledFields.remove(fieldId)) {
+                present.add(fieldId);
+            }
+        }
+        this.enabledHeaderIdsBySection.put(sectionName, present);
+
+        DataSection headerSection = new DataSection();
+        if (present.isEmpty()) {
+            return null;
+        }
+
+        int x = 0;
+        for (String fieldId : present) {
+            DataCell headerCell = new DataCell(fieldToHeaderMap.get(fieldId), x, 1, StyleOption.HEADER);
+            headerSection.addCell(headerCell);
+            x++;
+        }
+        DataCell headerCell = new DataCell("Solved Status", 0, 0, StyleOption.LARGE_HEADER);
+        headerCell.addStyle(StyleOption.HEADER);
+        headerSection.addCell(headerCell);
+
+        return headerSection;
+    }
+
+    public DataSection isSolvedBody(Patient patient)
+    {
+        String sectionName = "isSolved";
+        Set<String> present = this.enabledHeaderIdsBySection.get(sectionName);
+        if (present == null || present.isEmpty()) {
+            return null;
+        }
+        DataSection bodySection = new DataSection();
+        PatientData<String> patientData = patient.getData("solved");
+
+        Integer x = 0;
+        if (present.contains("solved")) {
+            String solved = patientData != null ? patientData.get("solved") : null;
+            DataCell cell = new DataCell(solved != null ? ConversionHelpers.strIntegerToStrBool(solved) : "", x, 0);
+            bodySection.addCell(cell);
+            x++;
+        }
+        if (present.contains("solved__pubmed_id")) {
+            String pubmedId = patientData != null ? patientData.get("solved__pubmed_id") : null;
+            DataCell cell = new DataCell(pubmedId != null ? pubmedId : "", x, 0);
+            bodySection.addCell(cell);
+            x++;
+        }
+        if (present.contains("solved__gene_id")) {
+            String geneId = patientData != null ? patientData.get("solved__gene_id") : null;
+            DataCell cell = new DataCell(geneId != null ? geneId : "", x, 0);
+            bodySection.addCell(cell);
+            x++;
+        }
+        if (present.contains("solved__notes")) {
+            String solvedNotes = patientData != null ? patientData.get("solved__notes") : null;
+            for (DataCell cell : ConversionHelpers.preventOverflow(solvedNotes, x, 0)) {
+                cell.setMultiline();
+                bodySection.addCell(cell);
+            }
+            x++;
         }
 
         return bodySection;

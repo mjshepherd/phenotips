@@ -2,20 +2,18 @@
  * See the NOTICE file distributed with this work for additional
  * information regarding copyright ownership.
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This software is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.phenotips.data.internal.controller;
 
@@ -38,10 +36,12 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
 
 import com.xpn.xwiki.doc.XWikiDocument;
 import com.xpn.xwiki.objects.BaseObject;
@@ -69,11 +69,16 @@ public class RejectedGeneListController extends AbstractComplexController<Map<St
 
     private static final String CONTROLLER_NAME = REJECTEDGENES_STRING;
 
-    private static final String REJECTEDGENES_ENABLING_FIELD_NAME          = REJECTEDGENES_STRING;
+    private static final String REJECTEDGENES_ENABLING_FIELD_NAME = REJECTEDGENES_STRING;
+
     private static final String REJECTEDGENES_COMMENTS_ENABLING_FIELD_NAME = "rejectedGenes_comments";
 
-    private static final String GENE_KEY     = "gene";
+    private static final String GENE_KEY = "gene";
+
     private static final String COMMENTS_KEY = "comments";
+
+    @Inject
+    private Logger logger;
 
     @Override
     public String getName()
@@ -111,8 +116,8 @@ public class RejectedGeneListController extends AbstractComplexController<Map<St
         try {
             XWikiDocument doc = (XWikiDocument) this.documentAccessBridge.getDocument(patient.getDocument());
             List<BaseObject> geneXWikiObjects = doc.getXObjects(GENE_CLASS_REFERENCE);
-            if (geneXWikiObjects == null) {
-                throw new NullPointerException("The patient does not have any gene information");
+            if (geneXWikiObjects == null || geneXWikiObjects.isEmpty()) {
+                return null;
             }
 
             List<Map<String, String>> allGenes = new LinkedList<Map<String, String>>();
@@ -128,7 +133,8 @@ public class RejectedGeneListController extends AbstractComplexController<Map<St
             }
             return new IndexedPatientData<Map<String, String>>(getName(), allGenes);
         } catch (Exception e) {
-            // TODO. Log an error.
+            this.logger.error("Could not find requested document or some unforeseen "
+                + "error has occurred during controller loading ", e.getMessage());
         }
         return null;
     }
@@ -157,13 +163,16 @@ public class RejectedGeneListController extends AbstractComplexController<Map<St
         while (iterator.hasNext()) {
             Map<String, String> item = iterator.next();
 
-            if (StringUtils.isBlank(item.get(COMMENTS_KEY))
-                || (selectedFieldNames != null
-                    && !selectedFieldNames.contains(REJECTEDGENES_COMMENTS_ENABLING_FIELD_NAME))) {
-                item.remove(COMMENTS_KEY);
-            }
+            if (!StringUtils.isBlank(item.get(GENE_KEY))) {
 
-            container.add(item);
+                if (StringUtils.isBlank(item.get(COMMENTS_KEY))
+                    || (selectedFieldNames != null
+                    && !selectedFieldNames.contains(REJECTEDGENES_COMMENTS_ENABLING_FIELD_NAME))) {
+                    item.remove(COMMENTS_KEY);
+                }
+
+                container.add(item);
+            }
         }
     }
 }

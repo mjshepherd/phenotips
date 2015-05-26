@@ -4,20 +4,18 @@
  * See the NOTICE file distributed with this work for additional
  * information regarding copyright ownership.
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This software is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <xwikidoc version="1.1">
@@ -78,7 +76,7 @@ $xwiki.ssx.use('PhenoTips.TabelarDataMacros')##
 
       #end## foreach object
     #else
-      (% class="extradata-list#if ("$!{options.labels}" == 'true') withLabel#end#if ("$!{options.counter}" == 'true') withCounter#end $!{options.cssClass}" id="extradata-list-${dataClassName}#if("$!{options.propertyName}" != '')-$!{options.propertyValue}#end" %)
+      (% class="extradata-list#if ("$!{options.labels}" == 'true') withLabel#end#if ("$!{options.counter}" == 'true') withCounter#end $!{options.cssClass}" id="extradata-list-${dataClassName}#if("$!{options.propertyName}" != '')-$!{options.propertyValue}#end"#if("$!{options.rejectToClass}" != '') data-reject-to-class="$!{options.rejectToClass}"#end %)
       #if ("$!{options.counter}" == 'true')|=(% class="col-label" %)# #end#foreach($prop in $dataClass.properties)|=(% class="col-label $prop.name#if ($prop.name == $options.propertyName) hidden#end" %)$prop.translatedPrettyName#end#if("$!{options.rejectToClass}" != '')|=(% class="actions" %)#end#if ($options.mode == 'edit')|=(% class="actions" %)
       #else
 
@@ -100,7 +98,7 @@ $xwiki.ssx.use('PhenoTips.TabelarDataMacros')##
   #if ($objects.size() &gt; 0)
     #set ($targetObj = $objects.get($mathtool.sub($objects.size(), 1)))
     #set($dataClass = $targetObj.xWikiClass)
-    {{html wiki="true" clean="false"}}#foreach($prop in $dataClass.properties)&lt;td class="${prop.name}#if ($prop.name == $options.propertyName) hidden#end"&gt;#if ("$!{options.labels}" == 'true'){{html clean="false" wiki="false"}}&lt;label &gt;${prop.translatedPrettyName}:&lt;/label&gt;{{/html}}#end$doc.display($prop.getName(), $options.mode, $targetObj)&lt;/td&gt;#end#if ($options.mode == 'edit')&lt;td class="actions"&gt;#__extradata_deleteTool($targetObj '')&lt;/td&gt;#end{{/html}}
+    {{html wiki="true" clean="false"}}#foreach($prop in $dataClass.properties)&lt;td class="${prop.name}#if ($prop.name == $options.propertyName) hidden#end"&gt;#if ("$!{options.labels}" == 'true'){{html clean="false" wiki="false"}}&lt;label &gt;${prop.translatedPrettyName}:&lt;/label&gt;{{/html}}#end$doc.display($prop.getName(), $options.mode, $targetObj)&lt;/td&gt;#end#if ($options.mode == 'edit')#if("$!{options.rejectToClass}" != '')&lt;td class="actions"&gt;#__extradata_rejectTool($targetObj '' $options)&lt;/td&gt;#end&lt;td class="actions"&gt;#__extradata_deleteTool($targetObj '')&lt;/td&gt;#end{{/html}}
   #end
 #end
 {{/velocity}}
@@ -247,7 +245,8 @@ $xwiki.ssx.use('PhenoTips.TabelarDataMacros')##
       var propertyName = addTrigger.href.replace(/.*&amp;xredirect=.*propertyName=([^&amp;]*).*/, '$1') || '';
       var propertyValue = addTrigger.href.replace(/.*&amp;xredirect=.*propertyValue=([^&amp;]*).*/, '$1') || '';
       var addedDisplaySheet = addTrigger.href.replace(/.*&amp;xredirect=.*addedDisplaySheet=([^&amp;]*).*/, '$1') || '';
-      var url = addTrigger.href.replace(/(&amp;xredirect=[^&amp;]*)/m, '$1' + encodeURIComponent('?xpage=plain&amp;xaction=lastentry&amp;dataClassName=' + classname + '&amp;withLabel=' + dataTable.hasClassName('withLabel') + '&amp;propertyName=' + propertyName + '&amp;propertyValue=' + propertyValue + (addedDisplaySheet ? '&amp;sheet=' + addedDisplaySheet : ''))).replace(/#.*/m, '');
+      var rejectToClass = Element.readAttribute(dataTable, 'data-reject-to-class') || '';
+      var url = addTrigger.href.replace(/(&amp;xredirect=[^&amp;]*)/m, '$1' + encodeURIComponent('?xpage=plain&amp;xaction=lastentry&amp;dataClassName=' + classname + '&amp;withLabel=' + dataTable.hasClassName('withLabel') + '&amp;propertyName=' + propertyName + '&amp;propertyValue=' + propertyValue + (addedDisplaySheet ? '&amp;sheet=' + addedDisplaySheet : '' + '&amp;rejectToClass=' + rejectToClass))).replace(/#.*/m, '');
       new Ajax.Request(url, {
         onCreate : function() {
           addTrigger.disabled = true
@@ -263,6 +262,7 @@ $xwiki.ssx.use('PhenoTips.TabelarDataMacros')##
           }
           newRow.insert(response.responseText);
           newRow.down('a.delete').observe('click', this.ajaxDeleteData.bindAsEventListener(this));
+          newRow.down('a.reject') &amp;&amp; newRow.down('a.reject').observe('click', this.ajaxRejectData.bindAsEventListener(this));
           Event.fire(dataTable, 'extradata:added', {'element' : newRow});
           Event.fire(document, 'xwiki:dom:updated', {'elements' : [newRow]});
         }.bind(this),

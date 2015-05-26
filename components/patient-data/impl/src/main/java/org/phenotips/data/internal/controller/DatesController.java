@@ -2,20 +2,18 @@
  * See the NOTICE file distributed with this work for additional
  * information regarding copyright ownership.
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This software is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.phenotips.data.internal.controller;
 
@@ -27,8 +25,10 @@ import org.phenotips.data.PatientDataController;
 
 import org.xwiki.bridge.DocumentAccessBridge;
 import org.xwiki.component.annotation.Component;
+import org.xwiki.context.Execution;
 
 import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,6 +45,7 @@ import javax.inject.Singleton;
 
 import org.slf4j.Logger;
 
+import com.xpn.xwiki.XWikiContext;
 import com.xpn.xwiki.doc.XWikiDocument;
 import com.xpn.xwiki.objects.BaseObject;
 
@@ -74,6 +75,10 @@ public class DatesController implements PatientDataController<Date>
     @Inject
     private RecordConfigurationManager configurationManager;
 
+    /** Provides access to the current execution context. */
+    @Inject
+    private Execution execution;
+
     @Override
     public PatientData<Date> load(Patient patient)
     {
@@ -92,7 +97,8 @@ public class DatesController implements PatientDataController<Date>
             }
             return new DictionaryPatientData<Date>(DATA_NAME, result);
         } catch (Exception e) {
-            this.logger.error("Could not find requested document");
+            this.logger.error("Could not find requested document or some unforeseen"
+                + " error has occurred during controller loading ", e.getMessage());
         }
         return null;
     }
@@ -100,7 +106,29 @@ public class DatesController implements PatientDataController<Date>
     @Override
     public void save(Patient patient)
     {
-        throw new UnsupportedOperationException();
+        try {
+            XWikiDocument doc = (XWikiDocument) this.documentAccessBridge.getDocument(patient.getDocument());
+            BaseObject data = doc.getXObject(Patient.CLASS_REFERENCE);
+            if (data == null) {
+                throw new NullPointerException(ERROR_MESSAGE_NO_PATIENT_CLASS);
+            }
+
+            PatientData<Date> dates = patient.getData(DATA_NAME);
+            if (!dates.isNamed()) {
+                return;
+            }
+            for (String property : this.getProperties()) {
+                Date propertyValue = dates.get(property);
+                if (propertyValue != null) {
+                    data.setDateValue(property, dates.get(property));
+                }
+            }
+
+            XWikiContext context = (XWikiContext) this.execution.getContext().getProperty("xwikicontext");
+            context.getWiki().saveDocument(doc, "Updated dates from JSON", true, context);
+        } catch (Exception e) {
+            this.logger.error("Failed to save dates: [{}]", e.getMessage());
+        }
     }
 
     @Override
@@ -132,7 +160,27 @@ public class DatesController implements PatientDataController<Date>
     @Override
     public PatientData<Date> readJSON(JSONObject json)
     {
-        throw new UnsupportedOperationException();
+        DateFormat dateFormat =
+            new SimpleDateFormat(this.configurationManager.getActiveConfiguration().getISODateFormat());
+
+        Map<String, Date> result = new LinkedHashMap<>();
+        for (String property : this.getProperties()) {
+            if (json.has(property)) {
+                Object propertyValue = json.get(property);
+                if (propertyValue != null) {
+                    try {
+                        result.put(property, dateFormat.parse(propertyValue.toString()));
+                    } catch (ParseException ex) {
+                        // nothing to do.
+                    }
+                }
+            }
+        }
+        if (result.isEmpty()) {
+            return null;
+        } else {
+            return new DictionaryPatientData<>(DATA_NAME, result);
+        }
     }
 
     @Override

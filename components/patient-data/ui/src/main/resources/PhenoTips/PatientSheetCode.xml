@@ -4,20 +4,18 @@
  * See the NOTICE file distributed with this work for additional
  * information regarding copyright ownership.
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This software is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <xwikidoc version="1.1">
@@ -766,12 +764,12 @@ document.observe('xwiki:dom:loaded', function() {
                  var source = event.findElement('.summary-item');
                  var detailsElt = new Element('div', {'class' : 'phenotype-details loading'}).update("$services.localization.render('phenotips.patientSheetCode.termSuggest.loading')");
                  source.insert(detailsElt);
-                 event.findElement().hide();
+                 var addTrigger = event.findElement('.buttonwrapper');
+                 addTrigger.hide();
                  clearTool.__target = detailsElt;
                  editTool.__target = detailsElt;
                  editClearTools.show();
 
-                 var addTrigger = event.findElement();
                  if (addTrigger.disabled) {
                    return;
                  }
@@ -835,7 +833,7 @@ document.observe('xwiki:dom:loaded', function() {
                   editClearTools.hide();
                }
                editTool.observe('click', function(event) {
-                 var target = event.findElement().__target;
+                 var target = event.findElement('.buttonwrapper').__target;
                  if (!target.hasClassName('focused')) {
                    event.stop();
                    selectionSummary._focusDetails(target);
@@ -843,7 +841,7 @@ document.observe('xwiki:dom:loaded', function() {
                });
                clearTool.observe('click', function(event) {
                  event.stop();
-                 var deleteTrigger = event.element();
+                 var deleteTrigger = event.findElement('.buttonwrapper');
                  if (deleteTrigger.disabled) {
                     return;
                  }
@@ -1924,6 +1922,9 @@ document.observe('xwiki:dom:loaded', function() {
         return;
       }
       this.chartContainer = container;
+      if (this.chartContainer.innerHTML == '') {
+        this.chartContainer.up().hide();
+      }
       this.dataSources = dataSources;
       /** Chart update service */
       this.chartService = new XWiki.Document('ChartService', 'PhenoTips').getURL('get');
@@ -1990,6 +1991,11 @@ document.observe('xwiki:dom:loaded', function() {
         onSuccess: function(response) {
           if (requestID &lt; this.lastRequestID) {return;}
           this.chartContainer.update(response.responseText);
+          if (response.responseText == '&lt;div class="clear"&gt;&lt;/div&gt;') {
+            this.chartContainer.up().hide();
+          } else {
+            this.chartContainer.up().show();
+          }
           this.__adjustAllSVGHeights();
         }.bind(this),
         onFailure: function (response) {}
@@ -2194,9 +2200,9 @@ document.observe('xwiki:dom:loaded', function() {
   $$('.chapter.phenotype-info .phenotype-group').invoke('addClassName', 'collapsible-group');
 
   $$('.chapter &gt; h2').each(function(item){
-    var showIcon = '&lt;span class="fa fa-plus-square-o fa-lg">&lt;/span>&amp;nbsp;';
+    var showIcon = '&lt;span class="fa fa-plus-square-o fa-lg"&gt;&lt;/span&gt;&amp;nbsp;';
     var chapterShow = new Element('button', {'class' : 'tool button secondary', 'type' : 'button'}).update(showIcon+"$services.localization.render('phenotips.patientSheet.expandSection')");
-    var hideIcon = '&lt;span class="fa fa-minus-square-o fa-lg">&lt;/span>&amp;nbsp;';
+    var hideIcon = '&lt;span class="fa fa-minus-square-o fa-lg"&gt;&lt;/span&gt;&amp;nbsp;';
     var chapterHide = new Element('button', {'class' : 'tool button secondary', 'type' : 'button'}).update(hideIcon+"$services.localization.render('phenotips.patientSheet.collapseSection')");
     var chapterShowWrapper = new Element('span', {'class' : 'buttonwrapper show'}).insert(chapterShow);
     var chapterHideWrapper = new Element('span', {'class' : 'buttonwrapper hide'}).insert(chapterHide);

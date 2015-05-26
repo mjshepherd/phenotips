@@ -2,24 +2,22 @@
  * See the NOTICE file distributed with this work for additional
  * information regarding copyright ownership.
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This software is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.phenotips.solr;
 
-import org.phenotips.ontology.SolrOntologyServiceInitializer;
+import org.phenotips.vocabulary.SolrVocabularyResourceManager;
 
 import org.xwiki.cache.Cache;
 import org.xwiki.cache.CacheException;
@@ -30,6 +28,7 @@ import org.xwiki.component.phase.InitializationException;
 import org.xwiki.configuration.ConfigurationSource;
 import org.xwiki.script.service.ScriptService;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -39,7 +38,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.solr.client.solrj.SolrServer;
+import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
@@ -84,10 +83,10 @@ public abstract class AbstractSolrScriptService implements ScriptService, Initia
     protected Logger logger;
 
     /** The Solr server instance used. */
-    protected SolrServer server;
+    protected SolrClient server;
 
     @Inject
-    protected SolrOntologyServiceInitializer initializer;
+    protected SolrVocabularyResourceManager initializer;
 
     /**
      * Cache for the recently accessed documents; useful since the ontology rarely changes, so a search should always
@@ -108,7 +107,7 @@ public abstract class AbstractSolrScriptService implements ScriptService, Initia
     {
         try {
             this.initializer.initialize(getName());
-            this.server = this.initializer.getServer();
+            this.server = this.initializer.getSolrConnection();
             this.cache = this.cacheFactory.createNewLocalCache(new CacheConfiguration());
         } catch (RuntimeException ex) {
             throw new InitializationException("Invalid URL specified for the Solr server: {}");
@@ -343,7 +342,7 @@ public abstract class AbstractSolrScriptService implements ScriptService, Initia
                 }
             }
             return results;
-        } catch (SolrServerException ex) {
+        } catch (SolrServerException | IOException ex) {
             this.logger.error("Failed to search: {}", ex.getMessage(), ex);
         }
         return null;

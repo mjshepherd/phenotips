@@ -4,20 +4,18 @@
  * See the NOTICE file distributed with this work for additional
  * information regarding copyright ownership.
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This software is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <xwikidoc version="1.1">
@@ -132,10 +130,10 @@
   $$('.chapter .browser .browser-title').each(function(item) {
     item.insert({after: new Element('span', {'class' : 'expand-tools'})});
   });
-  var showIcon = '&lt;span class="fa fa-plus-square-o fa-lg">&lt;/span>&amp;nbsp;';
+  var showIcon = '&lt;span class="fa fa-plus-square-o fa-lg"&gt;&lt;/span&gt;&amp;nbsp;';
   var phBrowserExpandAll = new Element('button', {'class' : 'tool button secondary', 'type' : 'button'}).update(showIcon+"$services.localization.render('phenotips.UIXField.phenotype.expand')");
   var phBrowserExpandAllWrapper = new Element('span', {'class' : 'buttonwrapper expand-all'}).insert(phBrowserExpandAll);
-  var hideIcon = '&lt;span class="fa fa-minus-square-o fa-lg">&lt;/span>&amp;nbsp;';
+  var hideIcon = '&lt;span class="fa fa-minus-square-o fa-lg"&gt;&lt;/span&gt;&amp;nbsp;';
   var phBrowserCollapseAll = new Element('button', {'class' : 'tool button secondary', 'type' : 'button'}).update(hideIcon+"$services.localization.render('phenotips.UIXField.phenotype.collapse')");
   var phBrowserCollapseAllWrapper = new Element('span', {'class' : 'buttonwrapper collapse-all'}).insert(phBrowserCollapseAll);
   var phBrowserExpandTools = new Element('span', {'class' : 'inner-expand-tools'}).insert(phBrowserExpandAllWrapper).insert(phBrowserCollapseAllWrapper);
@@ -163,25 +161,36 @@
     }
   }
 
+  var relayoutSummaryStickyBox = function() {
+    if (sSticky) {
+      sSticky.makeDefault();
+      sSticky.resetPosition();
+    }
+  }
+
   $$('.chapter.phenotype-info .collapsible-group h3').each(function(item){
      if (item.up('.browser') &amp;&amp; !item.up('.collapsible-group').down('input[type=checkbox]:checked')) {
        toggleCategory(item);
      }
-     item.observe('click', toggleCategory);
+     item.observe('click', function() {
+       toggleCategory(item);
+       relayoutSummaryStickyBox();
+     });
   });
   phBrowserExpandAllWrapper.observe('click', function(event){
     event.element().up('.chapter').select('.collapsible-group.collapsed h3').each(function(item) {
       toggleCategory(item);
     });
+    relayoutSummaryStickyBox();
   });
   phBrowserCollapseAllWrapper.observe('click', function(event){
     event.element().up('.chapter').select('.collapsible-group:not(.collapsed) h3').each(function(item) {
       toggleCategory(item);
     });
+    relayoutSummaryStickyBox();
   });
 
-  // FIXME: Re-enable once https://github.com/phenotips/phenotips/issues/822 is fixed.
-  // phBrowserCollapseAll.click();
+  phBrowserCollapseAll.click();
 
   // ------------------------------------------------------------------------
   // Behavior of the quick search box
@@ -768,7 +777,8 @@ $xwiki.jsx.use('PhenoTips.UIX_Field__phenotype')##
 enabled=true
 required=
 order=1
-fields=unaffected,phenotype,negative_phenotype</parameters>
+fields=unaffected,phenotype,negative_phenotype
+privacy_level=1</parameters>
     </property>
     <property>
       <scope>wiki</scope>
