@@ -272,6 +272,30 @@
       <validationRegExp/>
       <classType>com.xpn.xwiki.objects.classes.TextAreaClass</classType>
     </diagnosis_notes>
+    <differential_diagnoses>
+      <cache>0</cache>
+      <classname/>
+      <customDisplay>{{include document="PhenoTips.OmimDisplay" /}}</customDisplay>
+      <disabled>0</disabled>
+      <displayType>input</displayType>
+      <idField/>
+      <multiSelect>1</multiSelect>
+      <name>differential_diagnoses</name>
+      <number>47</number>
+      <picker>0</picker>
+      <prettyName>Differential Diagnoses</prettyName>
+      <relationalStorage>1</relationalStorage>
+      <separator> </separator>
+      <separators/>
+      <size>1</size>
+      <sort>none</sort>
+      <sql/>
+      <unmodifiable>0</unmodifiable>
+      <validationMessage/>
+      <validationRegExp/>
+      <valueField/>
+      <classType>com.xpn.xwiki.objects.classes.DBListClass</classType>
+    </differential_diagnoses>
     <exam_date>
       <customDisplay>{{velocity}}{{html clean=false}}
 #set ($format = $services.recordConfiguration.activeConfiguration.dateOfBirthFormat)
@@ -845,10 +869,9 @@
       <name>omim_id</name>
       <number>19</number>
       <picker>0</picker>
-      <prettyName>OMIM disorder</prettyName>
+      <prettyName>Final diagnosis</prettyName>
       <relationalStorage>1</relationalStorage>
-      <separator>
-</separator>
+      <separator/>
       <separators/>
       <size>1</size>
       <sort>none</sort>
