@@ -59,5 +59,6 @@
     <module>diagnosis-suggestion</module>
     <module>pedigree</module>
     <module>proxy-authentication</module>
+    <module>phenogrid</module>
   </modules>
 </project>

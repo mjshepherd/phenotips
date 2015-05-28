@@ -28,10 +28,6 @@
   <artifactId>phenotips-phenogrid-api</artifactId>
   <name>PhenoTips - Phenogrid - Java APIs</name>
 
-  <properties>
-    <coverage.instructionRatio>0.37</coverage.instructionRatio>
-  </properties>
-
   <dependencies>
     <dependency>
       <groupId>org.xwiki.commons</groupId>

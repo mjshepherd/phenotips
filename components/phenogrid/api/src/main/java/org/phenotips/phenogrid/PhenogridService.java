@@ -18,8 +18,8 @@ package org.phenotips.phenogrid;
  */
 import org.phenotips.diagnosis.DiagnosisService;
 import org.phenotips.mendelianSearch.phenotype.PhenotypeScorer;
-import org.phenotips.ontology.OntologyManager;
-import org.phenotips.ontology.OntologyTerm;
+import org.phenotips.vocabulary.VocabularyManager;
+import org.phenotips.vocabulary.VocabularyTerm;
 
 import org.xwiki.component.annotation.Component;
 import org.xwiki.script.service.ScriptService;
@@ -52,12 +52,19 @@ public class PhenogridService implements ScriptService
     private DiagnosisService service;
 
     @Inject
-    private OntologyManager om;
+    private VocabularyManager vm;
 
     @Inject
     private PhenotypeScorer ps;
 
-    public JSONObject get(List<String> phenotype, List<String> nonstandardPhenotype, int limit){
+    /**
+     * Gets the phenogrid results
+     * @param phenotype input phenotype
+     * @param nonstandardPhenotype ignored
+     * @param limit max omim disorders to return
+     * @return a phenogrid view
+     */
+    public JSONObject get(List<String> phenotype, List<String> nonstandardPhenotype, int limit) {
         JSONObject result = new JSONObject();
         List<JSONObject> matches = this.getOMIM(phenotype, nonstandardPhenotype, limit);
         result.element("b", matches);
@@ -94,7 +101,7 @@ public class PhenogridService implements ScriptService
                 sumIC += lcsIC;
                 N++;
             }
-            meanIC = sumIC/matches.size();
+            meanIC = sumIC / matches.size();
 
             if(maxIC > maxMaxIC) {
                 maxMaxIC = maxIC;
@@ -108,10 +115,10 @@ public class PhenogridService implements ScriptService
             meanN += N;
         }
         int numViews = OMIMViews.size();
-        meanMaxIC = meanMaxIC/numViews;
-        meanMeanIC = meanMeanIC/numViews;
-        meanSumIC = meanSumIC/numViews;
-        meanN = meanN/numViews;
+        meanMaxIC = meanMaxIC / numViews;
+        meanMeanIC = meanMeanIC / numViews;
+        meanSumIC = meanSumIC / numViews;
+        meanN = meanN / numViews;
 
         JSONObject meta = new JSONObject();
         meta.put("maxMaxIC", maxMaxIC);
@@ -126,16 +133,16 @@ public class PhenogridService implements ScriptService
 
     private List<JSONObject> getOMIM(List<String> phenotype, List<String> nonstandardPhenotype, int limit)
     {
-        List<OntologyTerm> diseases = this.service.getDiagnosis(phenotype, nonstandardPhenotype, limit);
-        List<OntologyTerm> phenotypeTerms = new ArrayList<OntologyTerm>();
+        List<VocabularyTerm> diseases = this.service.getDiagnosis(phenotype, nonstandardPhenotype, limit);
+        List<VocabularyTerm> phenotypeTerms = new ArrayList<VocabularyTerm>();
         for (String phene :  phenotype) {
-            phenotypeTerms.add(this.om.resolveTerm(phene));
+            phenotypeTerms.add(this.vm.resolveTerm(phene));
         }
 
         List<Map<String, Object>> resultMaps = new ArrayList<Map<String, Object>>();
-        for (OntologyTerm disease :diseases) {
+        for (VocabularyTerm disease :diseases) {
             //TODO: find a diseases phenotype?
-            List<OntologyTerm> diseasePhenotype = this.getDiseasePhenotype(disease);
+            List<VocabularyTerm> diseasePhenotype = this.getDiseasePhenotype(disease);
             List<Map<String, Object>> matches = this.ps.getDetailedMatches(phenotypeTerms, diseasePhenotype);
             double score = this.ps.getScore(diseasePhenotype, phenotypeTerms);
             Map<String, Object> diseaseView = this.generateDiseaseView(disease, matches, score);
@@ -168,25 +175,25 @@ public class PhenogridService implements ScriptService
                 }
             }
         );
-        for (int i = 0; i< in.size(); i++) {
+        for (int i = 0; i < in.size(); i++) {
             ((Map<String, String>) in.get(i).get(SCORE_STRING)).put("rank", i + "");
         }
     }
 
-    private Map<String, Object> generateDiseaseView(OntologyTerm disease, List<Map<String, Object>> matches,
+    private Map<String, Object> generateDiseaseView(VocabularyTerm disease, List<Map<String, Object>> matches,
         double score)
     {
         Map<String, Object> result = new HashMap<String, Object>();
         result.put("id", disease.getId());
-        result.put("label", disease.getName());
+        result.put("label", this.getDiseasePrettyName(disease.getName()));
         result.put("type", null);
         result.put("matches", matches);
 
         Map<String, Object> scoreMap = new HashMap<String, Object>();
         scoreMap.put("metric", "combined_score");
-        scoreMap.put("score", (int) Math.round(score*100));
+        scoreMap.put(SCORE_STRING, (int) Math.round(score * 100));
 
-        result.put("score", scoreMap);
+        result.put(SCORE_STRING, scoreMap);
 
         //TODO:I have no idea what to do with taxon
         Map<String, Object> taxon = new HashMap<String, Object>();
@@ -198,12 +205,26 @@ public class PhenogridService implements ScriptService
         return result;
     }
 
-    private List<OntologyTerm> getDiseasePhenotype(OntologyTerm disease)
+    private String getDiseasePrettyName(String fullName)
     {
-        List<OntologyTerm> result = new ArrayList<OntologyTerm>();
+        int startIndex = fullName.indexOf(' ');
+        int separatorIndex = fullName.indexOf(';');
+        if (startIndex == -1) {
+            startIndex = 0;
+        }
+        if (separatorIndex == -1) {
+            separatorIndex = fullName.length();
+        }
+        return fullName.substring(startIndex, separatorIndex);
+
+    }
+
+    private List<VocabularyTerm> getDiseasePhenotype(VocabularyTerm disease)
+    {
+        List<VocabularyTerm> result = new ArrayList<VocabularyTerm>();
         List<String> diseasePhenotype = (List<String>) disease.get("actual_symptom");
-        for(String termId : diseasePhenotype){
-            result.add(this.om.resolveTerm(termId));
+        for (String termId : diseasePhenotype) {
+            result.add(this.vm.resolveTerm(termId));
         }
         return result;
     }

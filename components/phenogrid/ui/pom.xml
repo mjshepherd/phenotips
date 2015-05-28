@@ -25,7 +25,7 @@
     <artifactId>phenotips-phenogrid</artifactId>
     <version>1.2-SNAPSHOT</version>
   </parent>
-  <artifactId>phenotips-phenogriud-ui</artifactId>
+  <artifactId>phenotips-phenogrid-ui</artifactId>
   <name>PhenoTips - Phenogrid - Application Documents</name>
   <packaging>xar</packaging>
 
@@ -33,7 +33,7 @@
     <!-- Don't run CLIRR here since there's no Java code. -->
     <xwiki.clirr.skip>true</xwiki.clirr.skip>
     <!-- Name to display by the Extension Manager -->
-    <xwiki.extension.name>Pedigrees</xwiki.extension.name>
+    <xwiki.extension.name>Phenogrid</xwiki.extension.name>
   </properties>
 
   <dependencies>

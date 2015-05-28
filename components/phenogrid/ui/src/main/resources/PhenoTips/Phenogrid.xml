@@ -147,30 +147,27 @@
       </use>
     </class>
     <property>
-      <cache>default</cache>
+      <cache>long</cache>
     </property>
     <property>
       <code>require(['jquery'], function ($) {
-$(document).ready(function() {
-  var terms = $('.phenogrid-terms').serializeArray();
-  var phenotypes = [];
-  terms.each(function(term){
-    phenotypes.push(term.value);
-  });
-  jQuery("#phen_vis").phenogrid({
-    // serverURL : "http://monarch.monarchinitiative.org",
-    serverURL : "$xwiki.getURL('PhenoTips.PhenogridService', 'get')",
-    phenotypeData : phenotypes,
-    targetSpecies : "10090"
-  });
-});
-});
+  jQuery(document).ready(function() {
+    if (jQuery("#phen_vis")){
+      var terms = $("input[name='phenogrid-phenotype-input']");
+      var phenotypes = [];
+      terms.each(function(i){
+        phenotypes.push(terms[i].value);
+      });
 
-/*document.observe("xwiki:dom:loaded", function() {
-  Event.observe($("phen_vis"), 'mouseover', function(){
-    console.log("A prototype mouse over event was fired!");
+      jQuery("#phen_vis").phenogrid({
+        // serverURL : "http://monarch.monarchinitiative.org",
+        serverURL : "$xwiki.getURL('PhenoTips.PhenogridService', 'get')",
+        phenotypeData : phenotypes,
+        targetSpecies : "10090"
+      });
+    }
   });
-});*/</code>
+});</code>
     </property>
     <property>
       <name>Phenogrid</name>
@@ -259,11 +256,12 @@ $(document).ready(function() {
       </use>
     </class>
     <property>
-      <cache>default</cache>
+      <cache>long</cache>
     </property>
     <property>
       <code>#phen_vis {
-  text-shadow: none;
+  padding: 30px;
+  background: red;
 }</code>
     </property>
     <property>
@@ -347,7 +345,6 @@ $(document).ready(function() {
     </class>
     <property>
       <content>{{velocity}}
-#if($xcontext.action == 'view')
 $xwiki.jsfx.use('uicomponents/phenogrid/js/d3.min.js')##
 $xwiki.jsfx.use('uicomponents/phenogrid/js/jquery-1.11.0.min.js')##
 $xwiki.jsfx.use('uicomponents/phenogrid/js/jquery-ui-1.10.3.custom.min.js')##
@@ -356,39 +353,42 @@ $xwiki.jsfx.use('uicomponents/phenogrid/js/stickytooltip.js')##
 $xwiki.jsfx.use('uicomponents/phenogrid/js/phenogrid_config.js')##
 $xwiki.jsfx.use('uicomponents/phenogrid/js/phenogrid.js')##
 $xwiki.jsfx.use('uicomponents/phenogrid/js/render.js')##
-$xwiki.ssfx.use('uicomponents/phenogrid/css/instructions.css')##
 $xwiki.ssfx.use('uicomponents/phenogrid/css/jquery-ui.css')##
 $xwiki.ssfx.use('uicomponents/phenogrid/css/phenogrid.css')##
 $xwiki.ssfx.use('uicomponents/phenogrid/css/stickytooltip.css')##
 $xwiki.jsx.use('PhenoTips.Phenogrid')##
-$xwiki.ssx.use('PhenoTips.Phenogrid')##
-===Phenogrid===
-{{html}}
 #set($phenotype = $doc.getObject('PhenoTips.PatientClass').getProperty("phenotype").getValue())
 #if($xcontext.action == 'view' &amp;&amp; $phenotype.isEmpty() == false)
-&lt;form class="phenogrid-terms"&gt;
- &lt;div&gt;
-  #foreach($id in $phenotype)
-    &lt;input type="hidden" name="phenotype" value="$id"/&gt;
-  #end
- &lt;/div&gt;
-&lt;/form&gt;
-#end
+===Phenogrid===
+{{html}}
+&lt;div&gt;
+  &lt;form class="phenogrid-terms"&gt;
+    #foreach($id in $phenotype)
+      &lt;input type="hidden" name="phenogrid-phenotype-input" value="$id"/&gt;
+    #end
+  &lt;/form&gt;
+&lt;/div&gt;
+
 &lt;div id='phen_vis'&gt;&lt;/div&gt;
+
 {{/html}}
 #end
 {{/velocity}}
-
 </content>
     </property>
     <property>
-      <extensionPointId>org.phenotips.patientSheet.section.phenotype-info</extensionPointId>
+      <extensionPointId>org.phenotips.patientSheet.section.diagnosis-info</extensionPointId>
     </property>
     <property>
       <name>org.phenotips.patientSheet.field.phenogrid</name>
     </property>
     <property>
-      <parameters/>
+      <parameters>title=Matching OMIM Disorders
+enabled=true
+required=
+order=5
+fields=
+privacy_level=1</parameters>
     </property>
     <property>
       <scope>wiki</scope>
