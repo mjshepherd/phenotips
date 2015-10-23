@@ -20,6 +20,8 @@ package org.phenotips.measurements.internal;
 import org.phenotips.measurements.MeasurementHandler;
 import org.phenotips.measurements.MeasurementsChartConfiguration;
 import org.phenotips.measurements.MeasurementsChartConfigurationsFactory;
+import org.phenotips.vocabulary.VocabularyManager;
+import org.phenotips.vocabulary.VocabularyTerm;
 
 import org.xwiki.component.phase.Initializable;
 import org.xwiki.component.phase.InitializationException;
@@ -30,11 +32,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.ResourceBundle;
 
 import javax.inject.Inject;
 
 import org.apache.commons.math3.distribution.NormalDistribution;
+import org.joda.time.Period;
 import org.slf4j.Logger;
 
 /**
@@ -46,6 +51,21 @@ public abstract class AbstractMeasurementHandler implements MeasurementHandler, 
 {
     /** Tool used for computing the percentile corresponding to a given z-score. */
     private static final NormalDistribution NORMAL = new NormalDistribution();
+
+    /** Fuzzy value representing a measurement value considered extremely below normal. */
+    private static final String VALUE_EXTREME_BELOW_NORMAL = "extreme-below-normal";
+
+    /** Fuzzy value representing a measurement value considered below normal, but not extremely. */
+    private static final String VALUE_BELOW_NORMAL = "below-normal";
+
+    /** Fuzzy value representing a measurement value considered normal. */
+    private static final String VALUE_NORMAL = "normal";
+
+    /** Fuzzy value representing a measurement value considered above normal, but not extremely. */
+    private static final String VALUE_ABOVE_NORMAL = "above-normal";
+
+    /** Fuzzy value representing a measurement value considered extremely above normal. */
+    private static final String VALUE_EXTREME_ABOVE_NORMAL = "extreme-above-normal";
 
     /**
      * Triplet storing the median (M), the generalized coefficient of variation (S), and the power in the Box-Cox
@@ -91,6 +111,10 @@ public abstract class AbstractMeasurementHandler implements MeasurementHandler, 
     @Inject
     private MeasurementsChartConfigurationsFactory settingsFactory;
 
+    /** Used to resolve vocabulary terms for associated phenotypes. */
+    @Inject
+    private VocabularyManager vocabularyManager;
+
     /**
      * Table storing the LMS triplets for each month of the normal development of boys corresponding to this measurement
      * type.
@@ -112,6 +136,25 @@ public abstract class AbstractMeasurementHandler implements MeasurementHandler, 
      * @return a simple name, all lowercase keyword
      */
     public abstract String getName();
+
+    /**
+     * Get the unit, for display purposes only, of this specific kind of measurement.
+     *
+     * @return the abbreviated unit, e.g. cm, kg
+     *         for unitless measurements, null
+     */
+    public abstract String getUnit();
+
+    /**
+     * Get a list of computation dependencies for this measurement. (relevant only for computed measurements)
+     *
+     * @return if this is a computed measurement, a list of computation dependencies for this measurement
+     *         otherwise, null
+     */
+    public List<String> getComputationDependencies()
+    {
+        return null;
+    }
 
     @Override
     public int valueToPercentile(boolean male, float ageInMonths, double value)
@@ -154,6 +197,12 @@ public abstract class AbstractMeasurementHandler implements MeasurementHandler, 
     }
 
     @Override
+    public boolean isComputed()
+    {
+        return false;
+    }
+
+    @Override
     public List<MeasurementsChartConfiguration> getChartsConfigurations()
     {
         return this.chartConfigurations;
@@ -164,6 +213,51 @@ public abstract class AbstractMeasurementHandler implements MeasurementHandler, 
     {
         readData();
         this.chartConfigurations = this.settingsFactory.loadConfigurationsForMeasurementType(getName());
+    }
+
+    @Override
+    public Collection<VocabularyTerm> getAssociatedTerms(Double standardDeviation)
+    {
+        ResourceBundle configuration = ResourceBundle.getBundle("measurementsAssociatedTerms");
+        List<VocabularyTerm> terms = new ArrayList<>();
+
+        if (null == standardDeviation || standardDeviation <= -3) {
+            addResolvedTermsToList(configuration, this.getName(), "extremeBelowNormal", terms);
+        }
+        if (null == standardDeviation || standardDeviation <= -2) {
+            addResolvedTermsToList(configuration, this.getName(), "belowNormal", terms);
+        }
+        if (null == standardDeviation || standardDeviation >= 2) {
+            addResolvedTermsToList(configuration, this.getName(), "aboveNormal", terms);
+        }
+        if (null == standardDeviation || standardDeviation >= 3) {
+            addResolvedTermsToList(configuration, this.getName(), "extremeAboveNormal", terms);
+        }
+
+        return terms;
+    }
+
+    /**
+     * Convenience method to add present, resolvable vocabulary terms for a given measurement to the given list.
+     *
+     * @param config the configuration resource bundle
+     * @param measurement the name of the measurement
+     * @param key the fuzzy value name key to check, e.g. "aboveNormal"
+     * @param list the list to which present and resolvable terms should be added
+     */
+    private void addResolvedTermsToList(ResourceBundle config, String measurement, String key,
+                                        List<VocabularyTerm> list)
+    {
+        String configKey = "measurements." + measurement + '.' + key;
+        if (config.containsKey(configKey)) {
+            String[] termStrs = config.getString(configKey).split(";");
+            for (String termStr : termStrs) {
+                VocabularyTerm term = vocabularyManager.resolveTerm(termStr);
+                if (term != null) {
+                    list.add(term);
+                }
+            }
+        }
     }
 
     /**
@@ -378,5 +472,68 @@ public abstract class AbstractMeasurementHandler implements MeasurementHandler, 
             return this.measurementsForAgeGirls;
         }
         return this.measurementsForAgeBoys;
+    }
+
+    /**
+     * Get the number of months corresponding to a period string.
+     *
+     * @param age the ISO-8601 period string, without leading 'P'
+     * @throws IllegalArgumentException if the age cannot be parsed
+     * @return number of months
+     */
+    public static Double convertAgeStrToNumMonths(String age) throws IllegalArgumentException
+    {
+        Period agePeriod;
+        agePeriod = Period.parse("P" + age);
+
+        Double ageMonths = 0.0;
+        ageMonths += agePeriod.getYears() * 12;
+        ageMonths += agePeriod.getMonths();
+        ageMonths += agePeriod.getWeeks() * 7 / 30.4375;
+        ageMonths += agePeriod.getDays() / 30.4375;
+
+        return ageMonths;
+    }
+
+    /**
+     * Convert a percentile number into a string grossly describing the value.
+     *
+     * @param percentile a number between 0 and 100
+     * @return the percentile description
+     */
+    public static String getFuzzyValue(int percentile)
+    {
+        String returnValue = VALUE_NORMAL;
+        if (percentile <= 1) {
+            returnValue = VALUE_EXTREME_BELOW_NORMAL;
+        } else if (percentile <= 3) {
+            returnValue = VALUE_BELOW_NORMAL;
+        } else if (percentile >= 99) {
+            returnValue = VALUE_EXTREME_ABOVE_NORMAL;
+        } else if (percentile >= 97) {
+            returnValue = VALUE_ABOVE_NORMAL;
+        }
+        return returnValue;
+    }
+
+    /**
+     * Convert a standard deviation number into a string grossly describing the value.
+     *
+     * @param deviation standard deviation value
+     * @return the deviation description
+     */
+    public static String getFuzzyValue(double deviation)
+    {
+        String returnValue = VALUE_NORMAL;
+        if (deviation <= -3.0) {
+            returnValue = VALUE_EXTREME_BELOW_NORMAL;
+        } else if (deviation <= -2.0) {
+            returnValue = VALUE_BELOW_NORMAL;
+        } else if (deviation >= 3.0) {
+            returnValue = VALUE_EXTREME_ABOVE_NORMAL;
+        } else if (deviation >= 2.0) {
+            returnValue = VALUE_ABOVE_NORMAL;
+        }
+        return returnValue;
     }
 }
