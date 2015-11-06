@@ -15,33 +15,30 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see http://www.gnu.org/licenses/
  */
-package org.phenotips.measurements.internal;
+package org.phenotips.data.rest;
 
-import org.xwiki.component.annotation.Component;
-
-import javax.inject.Named;
-import javax.inject.Singleton;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
 
 /**
- * Inner Canthal distance measurements, in centimeters.
+ * Resource for working with computed measurement values.
  *
  * @version $Id$
- * @since 1.0M3
+ * @since 1.2M5
  */
-@Component
-@Named("icd")
-@Singleton
-public class InnerCanthalDistanceMeasurementHandler extends AbstractMeasurementHandler
+@Path("/measurements/computed")
+public interface ComputedMeasurementResource
 {
-    @Override
-    public String getName()
-    {
-        return "icd";
-    }
-
-    @Override
-    public String getUnit()
-    {
-        return "cm";
-    }
+    /**
+     * Get a computed measurement based on a number of inputs required for the computation. The parameters are extracted
+     * manually by the implementation, since computed values vary in their numbers of parameters.
+     *
+     * @param uriInfo the request's URI info
+     * @return the computed measurement value
+     */
+    @GET
+    Response getComputedMeasurement(@Context UriInfo uriInfo);
 }

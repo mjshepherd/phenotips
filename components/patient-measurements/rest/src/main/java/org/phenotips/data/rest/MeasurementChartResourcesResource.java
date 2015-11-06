@@ -15,33 +15,30 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see http://www.gnu.org/licenses/
  */
-package org.phenotips.measurements.internal;
+package org.phenotips.data.rest;
 
-import org.xwiki.component.annotation.Component;
-
-import javax.inject.Named;
-import javax.inject.Singleton;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 /**
- * Inner Canthal distance measurements, in centimeters.
+ * Resource for getting chart resources, i.e. available charts with their titles and URLs.
  *
  * @version $Id$
- * @since 1.0M3
+ * @since 1.2M5
  */
-@Component
-@Named("icd")
-@Singleton
-public class InnerCanthalDistanceMeasurementHandler extends AbstractMeasurementHandler
+@Path("/measurements/chart-resources")
+public interface MeasurementChartResourcesResource
 {
-    @Override
-    public String getName()
-    {
-        return "icd";
-    }
-
-    @Override
-    public String getUnit()
-    {
-        return "cm";
-    }
+    /**
+     * Get a set of chart resources that are available for the given measurement sets.
+     *
+     * @param json the request's JSON input
+     * @return the set of available chart resources
+     */
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    Response getChartResources(String json);
 }
