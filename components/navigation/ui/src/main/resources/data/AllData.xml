@@ -234,9 +234,28 @@ $xwiki.ssfx.use('js/xwiki/table/livetable.css', {'colorTheme' : "$xwiki.getSpace
 var PhenoTips = (function(PhenoTips) {
   var widgets = PhenoTips.widgets = PhenoTips.widgets || {};
     
+  var ProgressBar = Class.create({
+    initialize: function() {
+      this.progressContainer = new Element('div', {'class':'progress-bar-container'});
+      this.progressFill = new Element('span', {'class':'progress-bar-fill'})
+        .setStyle({
+            'width': 0 + '%',
+          });
+      this.progressContainer.insert(this.progressFill);
+    },
+    render: function() {
+      return this.progressContainer;
+    },
+    update: function(percentage) {
+      this.progressFill.setStyle({
+        'width': percentage + '%'
+      });
+    }
+  });
 
   var DeleteButton = Class.create({
-    initialize: function() {
+    initialize: function(getPatientIds) {
+      this.getPatientIds = getPatientIds;
       this.element = new Element('a', {'class' : 'button', 'href' : ''});
       this.element.innerHTML = "Delete";
       this.element.observe('click', this.onClick.bind(this));
@@ -246,23 +265,101 @@ var PhenoTips = (function(PhenoTips) {
     },
     onClick: function(e) {
       e.preventDefault();
-      e.stop();
+      this.patientIds = this.getPatientIds();
       //do something
+      this.dialogContents = new Element('div', {'class': 'delete-patients-dialog'});
+      this.dialog = new PhenoTips.widgets.ModalPopup(this.dialogContents, false, {'title': "Delete Patients", 'removeOnClose': false});
+      this.createDialogContents();
+      this.dialog.show();
       console.log('Clicked!');
+    },
+    createDialogContents: function() {
+      this.dialogContents.insert(this.getDialogMessage())
+                         .insert(this.getDialogConfirmButton())
+                         .insert(this.getDialogCancelButton());
+    },
+    getDialogMessage: function() {
+      return (new Element('p')).update('You are about to delete'+this.patientIds.length+'patients &lt;br/&gt; Are you sure?"');
+    },
+    getDialogConfirmButton: function() {
+      var button = new Element('a', {'class' : 'button', 'href' : ''});
+      button.innerHTML = "Confirm";
+      button.observe('click', this.launchRequest.bind(this));
+      return button.wrap('div', {'class': 'buttonwrapper'});
+    },
+    getDialogCancelButton: function() {
+      var button = new Element('a', {'class' : 'button', 'href' : ''});
+      button.innerHTML = "Cancel";
+      button.observe('click', this.dialog.close.bind(this.dialog));
+      return button.wrap('div', {'class': 'buttonwrapper'});
+    },
+    launchRequest: function(e) {
+      e.preventDefault();
+      if(this.activeRequest){
+        return
+      };
+      var self = this;
+      this.dialogContents.update('');
+      
+      var numPatients = this.patientIds.length;
+      var progressBar = new ProgressBar();
+      this.dialogContents.update("&lt;p&gt;Deleting patients&lt;/p&gt;")
+                         .insert(progressBar.render());
+      var progress = {
+        success: 0,
+        failure: 0
+      };
+      var updateBar = (function() {
+        return function() {
+          progressBar.update((progress.success+progress.failure)/numPatients * 100);
+        }.bind(this);
+      }.bind(this))()
+      //update container
+      console.log('lauching request!');
+      this.patientIds.forEach(function(id){
+        //Prototype.js does not support 'DELETE' request method.
+        var request = new XMLHttpRequest();
+        request.open('DELETE', '/rest/patients/'+id);
+        request.onload = function() {
+          if (request.status &gt;= 200 &amp;&amp; request.status &lt; 400) {
+            progress.success++;
+          } else {
+            progress.failure++;
+          }
+          updateBar();
+          if (progress.success + progress.failure == numPatients) {
+            self.onFinishedDeleting(progress);
+          }
+        };
+        request.send();
+      });
+    },
+    onFinishedDeleting: function(stats){
+      this.dialogContents.update('');
+      var deletionMessage = 'Done';
+      var message = (new Element('p')).insert(deletionMessage);
+      var okButton = new Element('a', {'class' : 'button', 'href' : ''});
+      okButton.innerHTML='OK';
+      okButton.observe('click', function() {
+        this.dialog.closeDialog;
+      }.bind(this));
+      okButton = okButton.wrap('div', {'class': 'buttonwrapper'});
+      this.dialogContents.insert(message)
+                         .insert(okButton);
     }
   });
+
   var ModifyButton = Class.create({
-    initialize: function() {
+    initialize: function(getPatientIds) {
       this.element = new Element('a', {'class' : 'button', 'href' : ''});
       this.element.innerHTML = "Modify Permissions"
       this.element.observe('click', this.onClick.bind(this));
     },
     getElement: function() {
-      return this.element.wrap('div', { 'class': 'buttonwrapper' })
+      return this.element.wrap('div', { 'class': 'buttonwrapper' });
     },
     onClick: function(e) {
       e.preventDefault();
-      e.stop();
       //do something
       console.log('Clicked!');
     }
@@ -291,8 +388,8 @@ var PhenoTips = (function(PhenoTips) {
     initializeButtons: function() {
       //TODO: hook or explicit?
       buttons = {
-        delete: new DeleteButton(),
-        modify: new ModifyButton()
+        delete: new DeleteButton(this.getCheckedPatients.bind(this)),
+        modify: new ModifyButton(this.getCheckedPatients.bind(this))
       }
       this.buttonsContainer = new Element('div', {
           id: this.tableId + "-batchButtons", "class": "livetable-CBvalues"
@@ -427,6 +524,11 @@ var PhenoTips = (function(PhenoTips) {
         })
       }
     },
+    getCheckedPatients : function() {
+      return this.cbValuesContainer.select('input').map(function(input){
+        return input.value.replace('xwiki:data.', '');
+      });
+    },
     sendDataToService : function(e) {
         e.stop();
         var urlParams = 'xpage=plain&amp;autputSyntax=plain';
@@ -462,6 +564,129 @@ document.observe("xwiki:livetable:patients:loadingEntries", function(ev) {
     </property>
     <property>
       <parse/>
+    </property>
+    <property>
+      <use>currentPage</use>
+    </property>
+  </object>
+  <object>
+    <name>data.AllData</name>
+    <number>0</number>
+    <className>XWiki.StyleSheetExtension</className>
+    <guid>7d31adc8-beb3-40be-acd8-57956ede5cd1</guid>
+    <class>
+      <name>XWiki.StyleSheetExtension</name>
+      <customClass/>
+      <customMapping/>
+      <defaultViewSheet/>
+      <defaultEditSheet/>
+      <defaultWeb/>
+      <nameField/>
+      <validationScript/>
+      <cache>
+        <cache>0</cache>
+        <disabled>0</disabled>
+        <displayType>select</displayType>
+        <multiSelect>0</multiSelect>
+        <name>cache</name>
+        <number>5</number>
+        <prettyName>Caching policy</prettyName>
+        <relationalStorage>0</relationalStorage>
+        <separator> </separator>
+        <separators>|, </separators>
+        <size>1</size>
+        <unmodifiable>0</unmodifiable>
+        <values>long|short|default|forbid</values>
+        <classType>com.xpn.xwiki.objects.classes.StaticListClass</classType>
+      </cache>
+      <code>
+        <disabled>0</disabled>
+        <name>code</name>
+        <number>2</number>
+        <prettyName>Code</prettyName>
+        <rows>20</rows>
+        <size>50</size>
+        <unmodifiable>0</unmodifiable>
+        <classType>com.xpn.xwiki.objects.classes.TextAreaClass</classType>
+      </code>
+      <contentType>
+        <cache>0</cache>
+        <disabled>0</disabled>
+        <displayType>select</displayType>
+        <multiSelect>0</multiSelect>
+        <name>contentType</name>
+        <number>6</number>
+        <prettyName>Content Type</prettyName>
+        <relationalStorage>0</relationalStorage>
+        <separator> </separator>
+        <separators>|, </separators>
+        <size>1</size>
+        <unmodifiable>0</unmodifiable>
+        <values>CSS|LESS</values>
+        <classType>com.xpn.xwiki.objects.classes.StaticListClass</classType>
+      </contentType>
+      <name>
+        <disabled>0</disabled>
+        <name>name</name>
+        <number>1</number>
+        <prettyName>Name</prettyName>
+        <size>30</size>
+        <unmodifiable>0</unmodifiable>
+        <classType>com.xpn.xwiki.objects.classes.StringClass</classType>
+      </name>
+      <parse>
+        <disabled>0</disabled>
+        <displayFormType>select</displayFormType>
+        <displayType>yesno</displayType>
+        <name>parse</name>
+        <number>4</number>
+        <prettyName>Parse content</prettyName>
+        <unmodifiable>0</unmodifiable>
+        <classType>com.xpn.xwiki.objects.classes.BooleanClass</classType>
+      </parse>
+      <use>
+        <cache>0</cache>
+        <disabled>0</disabled>
+        <displayType>select</displayType>
+        <multiSelect>0</multiSelect>
+        <name>use</name>
+        <number>3</number>
+        <prettyName>Use this extension</prettyName>
+        <relationalStorage>0</relationalStorage>
+        <separator> </separator>
+        <separators>|, </separators>
+        <size>1</size>
+        <unmodifiable>0</unmodifiable>
+        <values>currentPage|onDemand|always</values>
+        <classType>com.xpn.xwiki.objects.classes.StaticListClass</classType>
+      </use>
+    </class>
+    <property>
+      <cache>default</cache>
+    </property>
+    <property>
+      <code>.progress-bar-container {
+    width: 80%;
+    height: 2em;
+    background-color: #BBB;
+    margin: 0 auto;
+    border-radius: 5px;
+}
+span.progress-bar-fill {
+    height: 100%;
+    display: block;
+    background-color: #305871;
+    border-radius: 5px;
+}</code>
+    </property>
+    <property>
+      <contentType>CSS</contentType>
+    </property>
+    <property>
+      <name/>
+    </property>
+    <property>
+      <parse>1</parse>
     </property>
     <property>
       <use>currentPage</use>
