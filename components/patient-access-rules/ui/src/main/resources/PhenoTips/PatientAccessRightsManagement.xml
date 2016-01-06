@@ -482,56 +482,87 @@
       </use>
     </class>
     <property>
-      <cache>long</cache>
+      <cache>default</cache>
     </property>
     <property>
       <code>var PhenoTips = (function (PhenoTips) {
   var widgets = PhenoTips.widgets = PhenoTips.widgets || {};
   widgets.AccessRightsManager = Class.create({
-    initialize : function (patientId) {
-      this.patientId = patientId;
-      // ---------------------------------------------------------------------
-      // Search for access levels manager elements. Exist if missing.
-      // ---------------------------------------------------------------------
-      this._element = $('access-rights-summary');
-      if (!this._element) { return; }
-      this._editorLauncher = this._element.down('.tool.edit a');
-      if (!this._editorLauncher) { return; }
-      this._serviceURL = this._element.down('input[name="serviceURL"]');
-      if (this._serviceURL) {
-        this._serviceURL = this._serviceURL.value;
+    ICON_ALIASES: {
+      'public' : 'eye',
+      'private' : 'lock',
+      'hidden' : 'eye-slash',
+      'matchable' : 'search',
+      'open' : 'pencil-square-o',
+    },
+    initialize : function (patientId, serviceURL, elementFinderCallBack) {
+      if (Array.isArray(patientId)) {
+        this.patientIds = patientId;
       } else {
+        this.patientIds = [patientId];
+      }
+
+      this._serviceURL = serviceURL;
+
+      if (elementFinderCallBack) {
+        elementFinderCallBack.call(this);
+      } else {
+        this._defaultElementFinder();
+      } 
+      //Assert that all needed elements exist
+      if (!this._element || !this._serviceURL) {
+        console.error("AccessRightsManager: Elements are missing or not set properly");
         return;
       }
+
       // ---------------------------------------------------------------------
       // Initialize the manager UI
       // ---------------------------------------------------------------------
-      this._initAccessLevels();
+      this._initAccessAndVisibilityLevels();
       this._initManagerUI();
-      // ---------------------------------------------------------------------
-      // Attach manager launcher behavior:
-      // ---------------------------------------------------------------------
-      var _this = this;
-      this._editorLauncher.observe('click', function(event) {
-        event.stop();
-        event.findElement().blur();
-        _this._launchEditor();
-      });
+
       // ---------------------------------------------------------------------
       // Initialization done
       // ---------------------------------------------------------------------
+
+      this._launchEditor();
     },
-    _initAccessLevels : function() {
-      var levels = {'access-level' : [], 'visibility' : []};
-      this._element.select('input[name="access-level"], input[name="visibility"]').each(function (item) {
-        levels[item.name].push({id : item.value, name : item.alt, title : item.title, icon: item.next('span.fa') || ''});
+
+    _defaultElementFinder : function() {
+      // ---------------------------------------------------------------------
+      // Search for access levels manager elements. Exit if missing.
+      // ---------------------------------------------------------------------
+      this._element = $('access-rights-summary');
+      if (!this._element) { return; }
+    },
+
+    _initAccessAndVisibilityLevels : function() {
+      var _this = this;
+      _this.ACCESS_LEVELS = [];
+      _this.VISIBILITY = [];
+      new Ajax.Request(this._serviceURL, {
+        parameters : {'xaction': 'meta'},
+        onCreate : function() {
+          console.log();
+        },
+        onSuccess : function(response) {
+          var data = response.responseJSON;
+          data["userAccessLevels"].forEach(function(item){
+            _this.ACCESS_LEVELS.push({id : item.name, name : item.description});
+          });
+          data["visibilityOptions"].forEach(function(item){
+            _this.VISIBILITY.push({id : item.name, name : item.name, title : item.description, icon: _this.ICON_ALIASES[item.name]});
+          });
+          
+          _this._initVisibilityManager();
+        }
       });
-      this.ACCESS_LEVELS = levels['access-level'];
-      this.VISIBILITY = levels['visibility'];
     },
+
     _initManagerUI : function() {
       this._container = new Element('form', {'id' : 'access-levels-manager', 'class' : 'xform', 'method' : 'post', 'action' : this._serviceURL});
-      //this._element.insert({'after' : this._container});
+
+      //TODO: Change the titles based on whether we are handling multiple patients
       this._container.insert(this._generateSection('manage-ownership', "$services.localization.render('phenotips.patientAccessRightsManagement.modifyOwnershipHeader')", "$services.localization.render('phenotips.patientAccessRightsManagement.modifyOwnershipBody')"))
                      .insert(this._generateSection('manage-visibility', "$services.localization.render('phenotips.patientAccessRightsManagement.modifyVisibilityHeader')", "$services.localization.render('phenotips.patientAccessRightsManagement.modifyVisibilityBody')"))
                      .insert(this._generateSection('manage-collaborators', "$services.localization.render('phenotips.patientAccessRightsManagement.modifyCollaboratorsHeader')", "$services.localization.render('phenotips.patientAccessRightsManagement.modifyCollaboratorsBody')"))
@@ -541,10 +572,10 @@
       this._collaboratorsManager = this._container.down('#manage-collaborators .section-contents');
       this._messages = this._container.down('#manager-messages');
       this._initOwnershipManager();
-      this._initVisibilityManager();
+      //visibility manager is initialized after possible levels a fetched.
       this._initCollaboratorsManager();
       this._initManagerActions();
-      this._dialog = new PhenoTips.widgets.ModalPopup(this._container, false, {'title': "$services.localization.render('phenotips.patientAccessRightsManagement.heading')".replace("__patientID__", this.patientId), 'verticalPosition': 'top', 'removeOnClose': false});
+      this._dialog = new PhenoTips.widgets.ModalPopup(this._container, false, {'title': "$services.localization.render('phenotips.patientAccessRightsManagement.heading')".replace("__patientID__", this.patientIds[0]), 'verticalPosition': 'top', 'removeOnClose': false});
       //document.fire('xwiki:dom:updated', {'elements' : [this._container]});
     },
     _generateSection : function(id, title, intro) {
@@ -552,13 +583,6 @@
                  .insert(title &amp;&amp; new Element('h2').update(title) || '')
                  .insert(intro &amp;&amp; new Element('p', {'class' : 'intro xHint'}).update(intro) || '')
                  .insert(new Element ('div', {'class' : 'section-contents'}));
-    },
-    _updateOwnershipManager : function(owner) {
-      this._ownerInfo.update("$services.localization.render('phenotips.patientAccessRightsManagement.modifyOwnershipInfo')".replace("__owner__", owner));
-      if (this._canTransferOwnership) {
-        this._ownerInfo.insert(" "+"$services.localization.render('phenotips.patientAccessRightsManagement.modifyOwnershipOptions')");
-        this._checkKeepOwnershipOption();
-      }
     },
     _initOwnershipManager : function() {
       this._ownerInfo = new Element('div', {id : 'owner', 'class' : 'intro xHint'});
@@ -574,54 +598,50 @@
       this._removeSelectedUser   = undefined;
       this._canTransferOwnership = newOwnerInput || newOwnerGroupSelect;
 
-      if (this._canTransferOwnership) {
-        var transfer = new Element('table', {id : 'transfer'});
-        this._removeSelectedUser = function() {  // removes previously selected user displayed by the suggest user picker
-            transfer.select('.delete-tool').each(function (item) {
-               item.click();
+      if(!this._canTransferOwnership) {
+        return;
+      }
+
+      var transferTable = new Element('table', {id : 'transfer'});
+      this._removeSelectedUser = function() {  // removes previously selected user displayed by the suggest user picker
+          transferTable.select('.delete-tool').each(function (item) {
+             item.click();
+          });
+      }
+      var _this = this;
+      var _getTransferOption = function (type, text, controlledElement) {
+        var optionWrapper = new Element('tr');
+        var input = new Element('input', {"type" : "radio", name : "transfer-to"});
+        var label = new Element('label').insert(input).insert(text);
+        input.observe('change', function() {
+          transferTable.select('.controlled-element input, .controlled-element select').each(function (item) {
+            item.disable();
+          });
+          _this._removeSelectedUser();
+          if (input.checked &amp;&amp; controlledElement) {
+            input.up('tr').select('.controlled-element input, .controlled-element select').each(function (item) {
+              item.enable();
             });
-        }
-        var _this = this;
-        var _getTransferOption = function (type, text, controlledElement) {
-           var optionWrapper = new Element('tr');
-           var input = new Element('input', {"type" : "radio", name : "transfer-to"});
-           var label = new Element('label').insert(input).insert(text);
-           input.observe('change', function() {
-             transfer.select('.controlled-element input, .controlled-element select').each(function (item) {
-                item.disable();
-             });
-             _this._removeSelectedUser();
-             if (input.checked &amp;&amp; controlledElement) {
-               input.up('tr').select('.controlled-element input, .controlled-element select').each(function (item) {
-                  item.enable();
-               });
-             }
-           });
-           optionWrapper.insert(new Element('span', {'class' : 'fa fa-' + type}).wrap('td'))
-                        .insert(label.wrap('td'))
-                        .insert(controlledElement &amp;&amp; controlledElement.wrap('td', {'class' : 'controlled-element'}) || '');
-           return optionWrapper;
-        }
-        this._defaultOwnerOption = _getTransferOption("check", "$services.localization.render('phenotips.patientAccessRightsManagement.modifyOwnershipKeepOwnership')", "");
-        transfer.insert(this._defaultOwnerOption);
-        //this._checkKeepOwnershipOption();
-        if (newOwnerGroupSelect) {
-          transfer.insert(_getTransferOption("group", "$services.localization.render('phenotips.patientAccessRightsManagement.modifyOwnershipTransferGroup')", newOwnerGroupSelect));
-        }
-        if (newOwnerInput) {
-          transfer.insert(_getTransferOption("user", "$services.localization.render('phenotips.patientAccessRightsManagement.modifyOwnershipTransferUser')", newOwnerInput));
-        }
-        transfer.select('.controlled-element input, .controlled-element select').each(function (item) {
-          item.disable();
+          }
         });
-        this._ownershipManager.insert(transfer);
+        optionWrapper.insert(new Element('span', {'class' : 'fa fa-' + type}).wrap('td'))
+                     .insert(label.wrap('td'))
+                     .insert(controlledElement &amp;&amp; controlledElement.wrap('td', {'class' : 'controlled-element'}) || '');
+        return optionWrapper;
       }
-    },
-    _checkKeepOwnershipOption : function() {
-      if (this._defaultOwnerOption) {
-        this._defaultOwnerOption.down('input').click();   // check the "keep current owner" radio (which also triggers all
-                                                          // corresponding actions such as disable/enable controlled elements)
+      this._defaultOwnerOption = _getTransferOption("check", "$services.localization.render('phenotips.patientAccessRightsManagement.modifyOwnershipKeepOwnership')", "");
+      transferTable.insert(this._defaultOwnerOption);
+
+      if (newOwnerGroupSelect) {
+        transferTable.insert(_getTransferOption("group", "$services.localization.render('phenotips.patientAccessRightsManagement.modifyOwnershipTransferGroup')", newOwnerGroupSelect));
       }
+      if (newOwnerInput) {
+        transferTable.insert(_getTransferOption("user", "$services.localization.render('phenotips.patientAccessRightsManagement.modifyOwnershipTransferUser')", newOwnerInput));
+      }
+      transferTable.select('.controlled-element input, .controlled-element select').each(function (item) {
+        item.disable();
+      });
+      this._ownershipManager.insert(transferTable);
     },
     _initVisibilityManager : function() {
       var table = new Element('table', {id : 'collaborators'});
@@ -630,8 +650,9 @@
          var input = new Element ('input', {'type' : 'radio', 'name' : 'visibility', 'value' : item.id});
          var label = new Element('label', {'class' : 'visibility', title : item.title}).insert(input).insert(item.name);
          var info  = new Element('p', {'class' : 'xHint'}).update(item.title);
+         var icon = new Element('span', {'class' : 'fa fa-'+item.icon});
          var row = new Element('tr')
-                .insert(new Element('td').insert(item.icon))
+                .insert(new Element('td').insert(icon))
                 .insert(new Element('td').insert(label))
                 .insert(new Element('td').insert(info));
          table.insert(row);
@@ -651,31 +672,33 @@
       this._collaboratorsManager.insert(table.insert(newCollaborator).insert(this._collaboratorsList));
       // Capture selection events
       newCollaborator.select('input').invoke('observe', "xwiki:suggest:selected", function(event) {
-         if (event.memo) {
-           var id = event.memo.value;
-           var existingCollaborator = _this._collaboratorsList.down('tr input[value="' + id.replace('"', '\\"') + '"]');
-           if (existingCollaborator) {
-             existingCollaborator.up('tr').addClassName('highlight');
-             // remove highlight after a while
-             new PeriodicalExecuter(function(pe) {
-                existingCollaborator.up('tr').removeClassName('highlight');
-                pe.stop();
-             }, 5);
-           } else {
-             var name = event.memo.info;
-             var type = event.findElement('input').name;
-             var newCollaborator = {'id' : id , 'name' : name , 'type' : type};
-             _this._addCollaborator(newCollaborator, true);
-             event.findElement().value = '';
-           }
+       if (event.memo) {
+         var id = event.memo.value;
+         var existingCollaborator = _this._collaboratorsList.down('tr input[value="' + id.replace('"', '\\"') + '"]');
+         if (existingCollaborator) {
+           existingCollaborator.up('tr').addClassName('highlight');
+           // remove highlight after a while
+           new PeriodicalExecuter(function(pe) {
+              existingCollaborator.up('tr').removeClassName('highlight');
+              pe.stop();
+           }, 5);
+         } else {
+           var name = event.memo.info;
+           var type = event.findElement('input').name;
+           var newCollaborator = {'id' : id , 'name' : name , 'type' : type};
+           _this._addCollaborator(newCollaborator, true);
+           event.findElement().value = '';
          }
+       }
       });
     },
     _initManagerActions : function() {
       var _this = this;
       var buttons = new Element('div', {'class' : 'buttons'});
       buttons.insert(new Element('input', {type: 'hidden', name : 'xaction', 'value': 'update'}));
-      buttons.insert(new Element('input', {type: 'hidden', name : 'patient', 'value': this.patientId}));
+      this.patientIds.forEach(function(patientId){
+        buttons.insert(new Element('input', {type: 'hidden', name : 'patient', 'value': patientId}));
+      });
       buttons.insert(new Element('input', {type: 'submit', name : 'submit',  'value': "$services.localization.render('phenotips.patientAccessRightsManagement.modifySubmitButton')", 'class' : 'button'}).wrap('span', {'class' : 'buttonwrapper'}));
       buttons.insert(new Element('input', {type: 'button', name : 'close',   'value': "$services.localization.render('phenotips.patientAccessRightsManagement.modifyCancelButton')", 'class' : 'button secondary'}).wrap('span', {'class' : 'buttonwrapper'}));
       this._container.insert(buttons);
@@ -727,7 +750,7 @@
               _this.VISIBILITY.each(function (item) {
                  if (item.id == formData.visibility) {
                    visibility.update('');
-                   visibility.insert(item.icon.clone(true)).insert(item.name);
+                   visibility.insert(new Element('span', {'class' : 'fa fa-'+item.icon})).insert(" "+item.name);
                    visibility.title = item.title;
                  }
               });
@@ -759,11 +782,9 @@
 
     _launchEditor : function () {
       var _this = this;
-      if (this._editorLauncher._disabled) { return; }
-      new Ajax.Request(this._container.action, {
-        parameters : {'xaction': 'get', 'patient' : this.patientId},
+      new Ajax.Request('/rest/patients/'+this.patientIds[0], {
+        method: 'GET',
         onCreate : function() {
-          _this._editorLauncher._disabled = true;
           _this._messages.update('');
           _this._dialog.showDialog();
           _this._container.up('.msdialog-modal-container').style.zIndex = 3001;
@@ -776,11 +797,22 @@
            _this._updateCollaborators(data.collaborators);
         },
         onComplete : function() {
-          _this._editorLauncher._disabled = false;
         }
       });
     },
-
+    _updateOwnershipManager : function(owner) {
+      this._ownerInfo.update("$services.localization.render('phenotips.patientAccessRightsManagement.modifyOwnershipInfo')".replace("__owner__", owner));
+      if (this._canTransferOwnership) {
+        this._ownerInfo.insert(" "+"$services.localization.render('phenotips.patientAccessRightsManagement.modifyOwnershipOptions')");
+        this._checkKeepOwnershipOption();
+      }
+    },
+    _checkKeepOwnershipOption : function() {
+      if (this._defaultOwnerOption) {
+        this._defaultOwnerOption.down('input').click();   // check the "keep current owner" radio (which also triggers all
+                                                          // corresponding actions such as disable/enable controlled elements)
+      }
+    },
     _updateVisibility : function (value) {
       var elt = this._visibilityManager.down('input[type="radio"][value="' + value + '"]');
       if (elt) {
@@ -828,10 +860,115 @@
     }
   });
   return PhenoTips;
-}(PhenoTips || {}));
-
-document.observe("xwiki:dom:loaded", function() {
-  new PhenoTips.widgets.AccessRightsManager(document.documentElement.down('meta[name="page"]').content);
+}(PhenoTips || {}));</code>
+    </property>
+    <property>
+      <name>PatientAccessRightsDialogue</name>
+    </property>
+    <property>
+      <parse>1</parse>
+    </property>
+    <property>
+      <use>onDemand</use>
+    </property>
+  </object>
+  <object>
+    <name>PhenoTips.PatientAccessRightsManagement</name>
+    <number>1</number>
+    <className>XWiki.JavaScriptExtension</className>
+    <guid>2384608c-db1c-42be-a19b-81230f157aa0</guid>
+    <class>
+      <name>XWiki.JavaScriptExtension</name>
+      <customClass/>
+      <customMapping/>
+      <defaultViewSheet/>
+      <defaultEditSheet/>
+      <defaultWeb/>
+      <nameField/>
+      <validationScript/>
+      <cache>
+        <cache>0</cache>
+        <disabled>0</disabled>
+        <displayType>select</displayType>
+        <multiSelect>0</multiSelect>
+        <name>cache</name>
+        <number>5</number>
+        <prettyName>Caching policy</prettyName>
+        <relationalStorage>0</relationalStorage>
+        <separator> </separator>
+        <separators>|, </separators>
+        <size>1</size>
+        <unmodifiable>0</unmodifiable>
+        <values>long|short|default|forbid</values>
+        <classType>com.xpn.xwiki.objects.classes.StaticListClass</classType>
+      </cache>
+      <code>
+        <disabled>0</disabled>
+        <name>code</name>
+        <number>2</number>
+        <prettyName>Code</prettyName>
+        <rows>20</rows>
+        <size>50</size>
+        <unmodifiable>0</unmodifiable>
+        <classType>com.xpn.xwiki.objects.classes.TextAreaClass</classType>
+      </code>
+      <name>
+        <disabled>0</disabled>
+        <name>name</name>
+        <number>1</number>
+        <prettyName>Name</prettyName>
+        <size>30</size>
+        <unmodifiable>0</unmodifiable>
+        <classType>com.xpn.xwiki.objects.classes.StringClass</classType>
+      </name>
+      <parse>
+        <disabled>0</disabled>
+        <displayFormType>select</displayFormType>
+        <displayType>yesno</displayType>
+        <name>parse</name>
+        <number>4</number>
+        <prettyName>Parse content</prettyName>
+        <unmodifiable>0</unmodifiable>
+        <classType>com.xpn.xwiki.objects.classes.BooleanClass</classType>
+      </parse>
+      <use>
+        <cache>0</cache>
+        <disabled>0</disabled>
+        <displayType>select</displayType>
+        <multiSelect>0</multiSelect>
+        <name>use</name>
+        <number>3</number>
+        <prettyName>Use this extension</prettyName>
+        <relationalStorage>0</relationalStorage>
+        <separator> </separator>
+        <separators>|, </separators>
+        <size>1</size>
+        <unmodifiable>0</unmodifiable>
+        <values>currentPage|onDemand|always</values>
+        <classType>com.xpn.xwiki.objects.classes.StaticListClass</classType>
+      </use>
+    </class>
+    <property>
+      <cache>default</cache>
+    </property>
+    <property>
+      <code>document.observe("xwiki:dom:loaded", function() {
+  this._element = $('access-rights-summary');
+  if (!this._element) { return; }
+  this._editorLauncher = this._element.down('.tool.edit a');
+  if (!this._editorLauncher) { return; }
+  var serviceURL = this._element.down('input[name="serviceURL"]');
+  if (serviceURL) {
+    serviceURL = serviceURL.value;
+  } else {
+    return;
+  }
+  this._editorLauncher.observe('click', function(event) {
+    event.stop();
+    event.findElement().blur();
+    new PhenoTips.widgets.AccessRightsManager(document.documentElement.down('meta[name="page"]').content, serviceURL);
+  });
+  
 });</code>
     </property>
     <property>
