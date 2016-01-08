@@ -5,22 +5,21 @@ var PhenoTips = (function(PhenoTips) {
   var DeleteButton = Class.create({
     initialize: function(getPatientIds) {
       this.getPatientIds = getPatientIds;
-      this.element = new Element('a', {'class' : 'button', 'href' : ''});
-      this.element.innerHTML = "Delete";
+      this.element = new Element('a', {'class' : '', 'href' : ''});
+      this.element.insert(new Element('span', {'class': 'fa fa-times'}));
+      this.element.insert(" Delete");
       this.element.observe('click', this.onClick.bind(this));
     },
     getElement: function() {
-      return this.element.wrap('div', { 'class': 'buttonwrapper' })
+      return this.element //this.element.wrap('div', { 'class': 'buttonwrapper' })
     },
     onClick: function(e) {
       e.preventDefault();
       this.patientIds = this.getPatientIds();
-      //do something
       this.dialogContents = new Element('div', {'class': 'delete-patients-dialog'});
-      this.dialog = new PhenoTips.widgets.ModalPopup(this.dialogContents, false, {'title': "Delete Patients", 'removeOnClose': false});
+      this.dialog = new PhenoTips.widgets.ModalPopup(this.dialogContents, false, {'title': "Delete Patients", 'removeOnClose': true});
       this.createDialogContents();
       this.dialog.show();
-      console.log('Clicked!');
     },
     createDialogContents: function() {
       this.dialogContents.insert(this.getDialogMessage())
@@ -28,7 +27,7 @@ var PhenoTips = (function(PhenoTips) {
                          .insert(this.getDialogCancelButton());
     },
     getDialogMessage: function() {
-      return (new Element('p')).update('You are about to delete'+this.patientIds.length+'patients <br/> Are you sure?"');
+      return (new Element('p')).update('You are about to delete '+this.patientIds.length+' patients. <br/> Are you sure?');
     },
     getDialogConfirmButton: function() {
       var button = new Element('a', {'class' : 'button', 'href' : ''});
@@ -37,7 +36,7 @@ var PhenoTips = (function(PhenoTips) {
       return button.wrap('div', {'class': 'buttonwrapper'});
     },
     getDialogCancelButton: function() {
-      var button = new Element('a', {'class' : 'button', 'href' : ''});
+      var button = new Element('a', {'class' : 'button secondary', 'href' : ''});
       button.innerHTML = "Cancel";
       button.observe('click', this.dialog.close.bind(this.dialog));
       return button.wrap('div', {'class': 'buttonwrapper'});
@@ -52,7 +51,7 @@ var PhenoTips = (function(PhenoTips) {
       
       var numPatients = this.patientIds.length;
       var progressBar = new PhenoTips.widgets.ProgressBar();
-      this.dialogContents.update("<p>Deleting patients</p>")
+      this.dialogContents.update("<p>Deleting patients...</p>")
                          .insert(progressBar.render());
       var progress = {
         success: 0,
@@ -98,12 +97,13 @@ var PhenoTips = (function(PhenoTips) {
 
   var ModifyButton = Class.create({
     initialize: function(getPatientIds) {
-      this.element = new Element('a', {'class' : 'button', 'href' : ''});
-      this.element.innerHTML = "Modify Permissions"
+      this.element = new Element('a', {'class' : '', 'href' : ''});
+      this.element.insert(new Element('span', {'class': 'fa fa-wrench'}));
+      this.element.insert(" Modify Permissions");
       this.element.observe('click', this.onClick.bind(this));
     },
     getElement: function() {
-      return this.element.wrap('div', { 'class': 'buttonwrapper' });
+      return this.element;//.wrap('div', { 'class': 'buttonwrapper' });
     },
     onClick: function(e) {
       e.preventDefault();
@@ -135,20 +135,27 @@ var PhenoTips = (function(PhenoTips) {
         modify: new ModifyButton(this.getCheckedPatients.bind(this))
       }
       this.buttonsContainer = new Element('div', {
-          id: this.tableId + "-batchButtons", "class": "livetable-CBvalues"
+          id: this.tableId + "-batchButtons", "class": "livetable-CBvalues hidden"
         });
-      $(this.tableId).insert({
-        before: this.buttonsContainer
-      });
+      var generalTools = $$('.general-tools');
+      if(generalTools[0]) {
+        generalTools[0].insert({top: this.buttonsContainer});
+      } else {
+        $(this.tableId).insert({
+          before: this.buttonsContainer
+        });
+      }
 
       for (buttonName in buttons) {
         if (buttons.hasOwnProperty(buttonName)) {
           this.buttonsContainer.insert({
             bottom: buttons[buttonName].getElement()
           });
+          this.buttonsContainer.insert({
+            bottom: " · "
+          });
         }
       }
-
     },
     initializeCheckboxes: function() {
       //Add 'master' checkbox
@@ -176,7 +183,7 @@ var PhenoTips = (function(PhenoTips) {
       if (!this.cbValuesContainer) {
         this.cbValuesContainer = new Element("div",{
           id: this.tableId + "-CBValues",
-          "class": "livetable-CBvalues"
+          "class": "livetable-CBvalues hidden"
         });
         $(this.tableId).insert({
           before: this.cbValuesContainer
@@ -199,10 +206,10 @@ var PhenoTips = (function(PhenoTips) {
             });
           }
         }.bind(this));
-      }
+      };
     },
 
-    addCheckboxToRow : function(event) {
+    addCheckboxToRow: function(event) {
         var row = event.memo.row;
 
         if(!row.down('input[name=checkboxSelect]')) {
@@ -253,6 +260,7 @@ var PhenoTips = (function(PhenoTips) {
           this.masterCheck.checked = false;
         }
       }
+      this.onSelectionChange();
     },
     onClickMasterCheck: function (e) {
       masterCheck = e.target;
@@ -267,25 +275,17 @@ var PhenoTips = (function(PhenoTips) {
         })
       }
     },
-    getCheckedPatients : function() {
+    getCheckedPatients: function() {
       return this.cbValuesContainer.select('input').map(function(input){
         return input.value.replace('xwiki:data.', '');
       });
     },
-    sendDataToService : function(e) {
-        e.stop();
-        var urlParams = 'xpage=plain&autputSyntax=plain';
-        this.cbValuesContainer.select('input').each(function(input){
-          urlParams += '&cbData=' + encodeURIComponent(input.value);
-        });
-        ajaxURL = this.serviceDocument.getURL();
-        new Ajax.Request(this.serviceDocument.getURL(), {
-          parameters: urlParams,
-          onSuccess : function(response) {
-            // Handle response here
-          }
-        });
-
+    onSelectionChange: function() {
+      if (this.getCheckedPatients().length > 0) {
+        this.buttonsContainer.removeClassName('hidden');
+      } else {
+        this.buttonsContainer.addClassName('hidden');
+      }
     }
   });
     

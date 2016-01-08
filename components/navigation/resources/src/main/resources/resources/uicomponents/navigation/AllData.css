@@ -1,0 +1,11 @@
+#patients-batchButtons {
+    display: inline;
+}
+
+.delete-patients-dialog {
+    text-align: center;
+}
+
+.xwiki-livetable tr.highlighted {
+    background-color: azure;
+}
