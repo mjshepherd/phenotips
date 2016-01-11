@@ -34,12 +34,13 @@ import org.restlet.ext.jackson.JacksonConverter;
 /* todo. figure out if this class should stay. it is a duplicate of a class in patient-data */
 
 
+
 /**
  * Configures the Jackson serializer used in the Restlet framework to print dates as ISO-formatted string instead of
  * simple numerical timestamps.
  *
  * @version $Id$
- * @since 1.3M1
+ * @since 1.2M5
  */
 @Component
 @Named("ConfigureISODatesInJson")

@@ -18,10 +18,7 @@
 package org.phenotips.data.permissions.rest;
 
 import org.phenotips.data.Patient;
-import org.phenotips.data.permissions.Collaborator;
-import org.phenotips.data.rest.model.Collaborators;
-import org.phenotips.data.rest.model.PatientVisibility;
-import org.phenotips.data.rest.model.PhenotipsUser;
+import org.phenotips.data.rest.model.PatientOwner;
 
 import org.xwiki.component.annotation.Role;
 import org.xwiki.stability.Unstable;
@@ -29,52 +26,22 @@ import org.xwiki.stability.Unstable;
 import javax.ws.rs.core.UriInfo;
 
 /**
- * Factory class for generating REST representations of various types of entities, used within the permissions module.
+ * Factory class for generating REST representations of various types of entities.
  *
  * @version $Id$
- * @since 1.3M1
+ * @since 1.2M5
  */
 @Unstable
 @Role
 public interface DomainObjectFactory
 {
     /**
-     * Create the REST representation for a {@link Owner}'s summary, starting from a {@link Patient} instance.
+     * Create the REST representation for a {@link Patient}'s summary, starting from an actual Patient object.
      *
-     * @param patient the owner of this patient will be serialized
-     * @return a summary of the patient record's owner, or {@code null} if the current user doesn't have access to the
-     * patient or accessing the patient data fails
-     */
-    PhenotipsUser createPatientOwner(Patient patient);
-
-    /**
-     * Create the REST representation for a {@link org.phenotips.data.permissions.Visibility}'s summary, starting from a
-     * {@link Patient} instance.
-     *
-     * @param patient whose visibility is of interest
-     * @return a summary of the patient record's visibility, or {@code null} if the current user doesn't have access to
-     * the patient or accessing the patient data fails
-     */
-    PatientVisibility createPatientVisibility(Patient patient);
-
-    /**
-     * Create the REST representation for a list of {@link Collaborators}, starting from a {@link Patient} instance.
-     *
-     * @param patient the (list of) collaborators that are attached to this patient record
+     * @param patient the patient to serialize
      * @param uriInfo the URI information for the rest system and the current request
-     * @return a summary of each collaborator on the patient record, or {@code null} if the current user doesn't have
-     * access to the patient or accessing the patient data fails.
+     * @return a patient summary, or {@code null} if the current user doesn't have access to the patient or accessing
+     * the patient data fails
      */
-    Collaborators createCollaborators(Patient patient, UriInfo uriInfo);
-
-    /**
-     * Create the REST representation for summary of a {@link Collaborator} instance, starting from a {@link Patient}
-     * and {@link Collaborator} instances.
-     *
-     * @param patient to whom the collaborator is attached
-     * @param collaborator that is to be represented
-     * @return a summary of the collaborator, or {@code null} if the current user doesn't have access to the patient or
-     * accessing the patient data fails.
-     */
-    PhenotipsUser createCollaborator(Patient patient, Collaborator collaborator);
+    PatientOwner createPatientOwner(Patient patient);
 }

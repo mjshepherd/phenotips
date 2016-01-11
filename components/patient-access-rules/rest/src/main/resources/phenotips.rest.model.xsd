@@ -32,7 +32,7 @@
     </sequence>
   </complexType>
 
-  <complexType name="UserSummary">
+  <complexType name="OwnerSummary">
     <complexContent>
       <extension base="phenotips:LinkCollection">
         <sequence>
@@ -40,16 +40,6 @@
           <element name="name" type="string"/>
           <element name="email" type="string"/>
           <element name="type" type="string"/>
-        </sequence>
-      </extension>
-    </complexContent>
-  </complexType>
-
-  <complexType name="UserCollection">
-    <complexContent>
-      <extension base="phenotips:LinkCollection">
-        <sequence>
-          <element name="collaborators" type="phenotips:UserSummary" minOccurs="0" maxOccurs="unbounded"/>
         </sequence>
       </extension>
     </complexContent>
@@ -65,41 +55,13 @@
     </complexContent>
   </complexType>
 
-  <complexType name="VisibilityOptions">
-    <complexContent>
-      <extension base="phenotips:LinkCollection">
-        <sequence>
-          <element name="level" type="string" minOccurs="0" maxOccurs="unbounded"/>
-        </sequence>
-      </extension>
-    </complexContent>
-  </complexType>
-
-  <complexType name="PermissionsSummary">
-    <complexContent>
-      <extension base="phenotips:LinkCollection">
-        <sequence>
-          <element name="owner" type="phenotips:UserSummary"/>
-          <element name="visibility" type="phenotips:VisibilitySummary"/>
-          <element name="collaborators" type="phenotips:UserCollection"/>
-        </sequence>
-      </extension>
-    </complexContent>
-  </complexType>
-
   <!--
   *
   * ELEMENTS
   *
   -->
 
-  <element name="phenotipsUser" type="phenotips:UserSummary"/>
+  <element name="patientOwner" type="phenotips:OwnerSummary"/>
 
-  <element name="patientVisibility" type="phenotips:VisibilitySummary"/>
-
-  <element name="collaborators" type="phenotips:UserCollection"/>
-
-  <element name="visibilityOptions" type="phenotips:VisibilityOptions"/>
-
-  <element name="permissions" type="phenotips:PermissionsSummary"/>
+  <element name="visibility" type="phenotips:VisibilitySummary"/>
 </schema>

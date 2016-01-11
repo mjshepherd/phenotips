@@ -17,9 +17,7 @@
  */
 package org.phenotips.data.permissions.rest;
 
-import org.phenotips.data.rest.model.PatientVisibility;
-
-import org.xwiki.component.annotation.Role;
+import org.phenotips.data.rest.model.Visibility;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -30,48 +28,26 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 /**
- * Resource for working with visibility of patient records, where the patient record is identified by its internal
- * identifier.
+ * ToDo.
  *
  * @version $Id$
- * @since 1.3M1
+ * @since 1.2M5
  */
-@Role
 @Path("/patients/{patient-id}/permissions/visibility")
 public interface VisibilityResource
 {
     /**
-     * Retrieves the {@link Visibility} of a patient identified by `patientId`. If the indicated patient record doesn't
-     * exist, or if the user sending the request doesn't have the right to view the target patient record, an error is
-     * returned.
-     *
-     * @param patientId identifier of the patient whose visibility to retrieve
-     * @return a representation of {@link Visibility} of the patient
+     * Todo. put a proper comment
+     * The missing javadoc comment
      */
-    @GET PatientVisibility getVisibility(@PathParam("patient-id") String patientId);
+    @GET
+    Visibility getVisibility(@PathParam("patient-id") String patientId);
 
-    /**
-     * Updates the visibility of a patient. If the indicated patient record doesn't exist, or if the user sending the
-     * request doesn't have the right to edit the target patient record, no change is performed and an error is
-     * returned.
-     *
-     * @param json which must contain "level" parameter, with a value of a visibility level
-     * @param patientId whose visibility level is to be updated
-     * @return a status message
-     */
     @PUT
-    @Consumes(MediaType.APPLICATION_JSON) Response putVisibilityWithJson(String json,
-        @PathParam("patient-id") String patientId);
+    @Consumes(MediaType.APPLICATION_JSON)
+    Response putVisibilityWithJson(String json, @PathParam("patient-id") String patientId);
 
-    /**
-     * Updates the visibility of a patient. If the indicated patient record doesn't exist, or if the user sending the
-     * request doesn't have the right to edit the target patient record, no change is performed and an error is
-     * returned. The request must contain a "visibility" parameter, with a value of a visibility level
-     *
-     * @param patientId whose visibility level is to be updated
-     * @return a status message
-     */
     @PUT
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED) Response putVisibilityWithForm(
-        @PathParam("patient-id") String patientId);
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    Response putVisibilityWithForm(@PathParam("patient-id") String patientId);
 }
