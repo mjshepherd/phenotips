@@ -1,3 +1,5 @@
 org.phenotips.data.permissions.rest.internal.ConfigureISODatesInJson
 org.phenotips.data.permissions.rest.internal.DefaultDomainObjectFactory
 org.phenotips.data.permissions.rest.internal.DefaultOwnerResourceImpl
+org.phenotips.data.permissions.rest.internal.DefaultVisibilityResourceImpl
+

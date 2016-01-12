@@ -17,7 +17,7 @@
  */
 package org.phenotips.data.permissions.rest;
 
-import org.phenotips.data.rest.model.Visibility;
+import org.phenotips.data.rest.model.PatientVisibility;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -41,7 +41,7 @@ public interface VisibilityResource
      * The missing javadoc comment
      */
     @GET
-    Visibility getVisibility(@PathParam("patient-id") String patientId);
+    PatientVisibility getVisibility(@PathParam("patient-id") String patientId);
 
     @PUT
     @Consumes(MediaType.APPLICATION_JSON)

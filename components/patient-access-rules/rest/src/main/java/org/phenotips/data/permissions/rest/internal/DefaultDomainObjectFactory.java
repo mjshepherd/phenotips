@@ -21,10 +21,11 @@ import org.phenotips.data.Patient;
 import org.phenotips.data.permissions.Owner;
 import org.phenotips.data.permissions.PatientAccess;
 import org.phenotips.data.permissions.PermissionsManager;
+import org.phenotips.data.permissions.Visibility;
 import org.phenotips.data.permissions.rest.DomainObjectFactory;
 import org.phenotips.data.permissions.script.SecurePatientAccess;
 import org.phenotips.data.rest.model.PatientOwner;
-import org.phenotips.data.rest.model.Visibility;
+import org.phenotips.data.rest.model.PatientVisibility;
 
 import org.xwiki.bridge.DocumentAccessBridge;
 import org.xwiki.component.annotation.Component;
@@ -107,6 +108,7 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
 
         PatientOwner result = new PatientOwner();
 
+        // todo. is this allowed?
         PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
         Owner owner = patientAccess.getOwner();
 
@@ -138,7 +140,7 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
         return result;
     }
 
-    public Visibility createVisibility(Patient patient)
+    public PatientVisibility createPatientVisibility(Patient patient)
     {
         if (patient == null) {
             return null;
@@ -149,5 +151,13 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
             return null;
         }
 
+        PatientVisibility result = new PatientVisibility();
+        // todo. is this allowed?
+        PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
+        Visibility visibility = patientAccess.getVisibility();
+
+        result.withLevel(visibility.getName());
+
+        return result;
     }
 }
