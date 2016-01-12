@@ -156,14 +156,18 @@ public class DefaultOwnerResourceImpl extends XWikiResource implements OwnerReso
             throw new WebApplicationException(Status.NOT_FOUND);
         }
         User currentUser = this.users.getCurrentUser();
-        if (!this.access.hasAccess(Right.VIEW, currentUser == null ? null : currentUser.getProfileDocument(),
+        if (!this.access.hasAccess(Right.EDIT, currentUser == null ? null : currentUser.getProfileDocument(),
             patient.getDocument())) {
-            this.logger.debug("View access denied to user [{}] on patient record [{}]", currentUser, patientId);
+            this.logger.debug("Edit access denied to user [{}] on patient record [{}]", currentUser, patientId);
             throw new WebApplicationException(Status.FORBIDDEN);
         }
 
-        EntityReference ownerReference = this.currentResolver.resolve(ownerId, EntityType.DOCUMENT);
+        // fixme. the resolver resolves to 'data' space
+
+        EntityReference ownerReference =
+            this.currentResolver.resolve(ownerId, EntityType.DOCUMENT, new EntityReference("XWiki", EntityType.SPACE));
         PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
+        // fixme. there should be a check for current user being the owner
         // existence and validity of the passed in owner should be checked by .setOwner
         if (!patientAccess.setOwner(ownerReference)) {
             // todo. should this status be an internal server error, or a bad request?

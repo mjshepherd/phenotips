@@ -63,5 +63,5 @@
 
   <element name="patientOwner" type="phenotips:OwnerSummary"/>
 
-  <element name="visibility" type="phenotips:VisibilitySummary"/>
+  <element name="patientVisibility" type="phenotips:VisibilitySummary"/>
 </schema>

@@ -28,10 +28,10 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 /**
- * Resource for working with patient records, identified by their internal PhenoTips identifier.
+ * Resource for working with patient records owners, identified by their internal PhenoTips identifier.
  *
  * @version $Id$
- * @since 1.2M5
+ * @since 1.3M1
  */
 @Path("/patients/{patient-id}/permissions/owner")
 public interface OwnerResource

@@ -19,6 +19,7 @@ package org.phenotips.data.permissions.rest;
 
 import org.phenotips.data.Patient;
 import org.phenotips.data.rest.model.PatientOwner;
+import org.phenotips.data.rest.model.PatientVisibility;
 
 import org.xwiki.component.annotation.Role;
 import org.xwiki.stability.Unstable;
@@ -44,4 +45,6 @@ public interface DomainObjectFactory
      * the patient data fails
      */
     PatientOwner createPatientOwner(Patient patient);
+
+    PatientVisibility createPatientVisibility(Patient patient);
 }
