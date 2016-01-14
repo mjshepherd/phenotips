@@ -18,8 +18,9 @@
 package org.phenotips.data.permissions.rest;
 
 import org.phenotips.data.Patient;
-import org.phenotips.data.rest.model.PatientOwner;
+import org.phenotips.data.rest.model.Collaborators;
 import org.phenotips.data.rest.model.PatientVisibility;
+import org.phenotips.data.rest.model.PhenotipsUser;
 
 import org.xwiki.component.annotation.Role;
 import org.xwiki.stability.Unstable;
@@ -44,7 +45,9 @@ public interface DomainObjectFactory
      * @return a patient summary, or {@code null} if the current user doesn't have access to the patient or accessing
      * the patient data fails
      */
-    PatientOwner createPatientOwner(Patient patient);
+    PhenotipsUser createPatientOwner(Patient patient);
 
     PatientVisibility createPatientVisibility(Patient patient);
+
+    Collaborators createCollaborators(Patient patient, UriInfo uriInfo);
 }

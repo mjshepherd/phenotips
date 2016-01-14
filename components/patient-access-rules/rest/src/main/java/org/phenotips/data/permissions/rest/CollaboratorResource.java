@@ -17,10 +17,9 @@
  */
 package org.phenotips.data.permissions.rest;
 
-import org.phenotips.data.rest.model.PhenotipsUser;
+import org.phenotips.data.rest.model.Collaborators;
 
 import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -29,62 +28,26 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 /**
- * Resource for working with patient collaborators, one at a time. Collaborators are found by both the internal patient
- * identifier and the internal collaborator identifier.
+ * ToDo.
  *
  * @version $Id$
- * @since 1.3M1
+ * @since 1.2M5
  */
-@Path("/patients/{patient-id}/permissions/collaborators/{collaborator-id}")
+@Path("/patients/{patient-id}/permissions/visibility")
 public interface CollaboratorResource
 {
     /**
-     * Retrieves information about a particular collaborator. If the indicated patient record doesn't exist, or if the
-     * user sending the request doesn't have the right to view the target patient record, an error is returned.
-     *
-     * @param patientId internal identifier of a patient record
-     * @param collaboratorId fully qualified, internal id of a collaborator (ex. xwiki:XWiki.JohnAdams)
-     * @return REST representation of a single collaborator
+     * Todo. put a proper comment
+     * The missing javadoc comment
      */
-    @GET PhenotipsUser getCollaborator(@PathParam("patient-id") String patientId,
-        @PathParam("collaborator-id") String collaboratorId);
+    @GET
+    Collaborators getCollaborators(@PathParam("patient-id") String patientId);
 
-    /**
-     * Updates the access level of a collaborator. If the indicated patient record doesn't exist, or if the user sending
-     * the request doesn't have the right to edit the target patient record, no change is performed and an error is
-     * returned.
-     *
-     * @param json must contain "level" property, with a value which is a valid access level
-     * @param patientId internal identifier of a patient record
-     * @param collaboratorId fully qualified, internal id of a collaborator (ex. xwiki:XWiki.JohnAdams)
-     * @return a status message
-     */
     @PUT
-    @Consumes(MediaType.APPLICATION_JSON) Response putLevelWithJson(String json,
-        @PathParam("patient-id") String patientId, @PathParam("collaborator-id") String collaboratorId);
+    @Consumes(MediaType.APPLICATION_JSON)
+    Response putVisibilityWithJson(String json, @PathParam("patient-id") String patientId);
 
-    /**
-     * Updates the access level of a collaborator. If the indicated patient record doesn't exist, or if the user sending
-     * the request doesn't have the right to edit the target patient record, no change is performed and an error is
-     * returned. The request must contain "level" property, with a value which is a valid access level.
-     *
-     * @param patientId internal identifier of a patient record
-     * @param collaboratorId fully qualified, internal id of a collaborator (ex. xwiki:XWiki.JohnAdams)
-     * @return a status message
-     */
     @PUT
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED) Response putLevelWithForm(
-        @PathParam("patient-id") String patientId, @PathParam("collaborator-id") String collaboratorId);
-
-    /**
-     * Removes a particular collaborator from a patient record. If the indicated patient record doesn't exist, or if the
-     * user sending the request doesn't have the right to edit the target patient record, no change is performed and an
-     * error is returned.
-     *
-     * @param patientId internal identifier of a patient record
-     * @param collaboratorId fully qualified, internal id of a collaborator (ex. xwiki:XWiki.JohnAdams)
-     * @return a status message
-     */
-    @DELETE Response deleteCollaborator(@PathParam("patient-id") String patientId,
-        @PathParam("collaborator-id") String collaboratorId);
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    Response putVisibilityWithForm(@PathParam("patient-id") String patientId);
 }

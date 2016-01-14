@@ -18,29 +18,27 @@
 package org.phenotips.data.permissions.rest.internal;
 
 import org.phenotips.data.Patient;
-import org.phenotips.data.permissions.Collaborator;
+import org.phenotips.data.PatientRepository;
 import org.phenotips.data.permissions.PatientAccess;
 import org.phenotips.data.permissions.PermissionsManager;
+import org.phenotips.data.permissions.Visibility;
 import org.phenotips.data.permissions.rest.CollaboratorResource;
-import org.phenotips.data.permissions.rest.CollaboratorsResource;
 import org.phenotips.data.permissions.rest.DomainObjectFactory;
-import org.phenotips.data.permissions.rest.PermissionsResource;
 import org.phenotips.data.permissions.rest.Relations;
-import org.phenotips.data.permissions.rest.internal.utils.PatientUserContext;
-import org.phenotips.data.permissions.rest.internal.utils.SecureContextFactory;
 import org.phenotips.data.permissions.script.SecurePatientAccess;
 import org.phenotips.data.rest.PatientResource;
+import org.phenotips.data.rest.model.Collaborators;
 import org.phenotips.data.rest.model.Link;
-import org.phenotips.data.rest.model.PhenotipsUser;
 
 import org.xwiki.component.annotation.Component;
 import org.xwiki.container.Container;
-import org.xwiki.model.EntityType;
-import org.xwiki.model.reference.EntityReference;
 import org.xwiki.model.reference.EntityReferenceResolver;
 import org.xwiki.rest.XWikiResource;
+import org.xwiki.security.authorization.AuthorizationManager;
 import org.xwiki.security.authorization.Right;
 import org.xwiki.text.StringUtils;
+import org.xwiki.users.User;
+import org.xwiki.users.UserManager;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -48,31 +46,32 @@ import javax.inject.Singleton;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 
-import org.apache.commons.lang.NotImplementedException;
 import org.slf4j.Logger;
 
 import net.sf.json.JSONObject;
 
 /**
- * Default implementation for {@link CollaboratorResource} using XWiki's support for REST resources.
+ *
  *
  * @version $Id$
- * @since 1.3M1
+ * @since todo
  */
 @Component
 @Named("org.phenotips.data.permissions.rest.internal.DefaultCollaboratorResourceImpl")
 @Singleton
 public class DefaultCollaboratorResourceImpl extends XWikiResource implements CollaboratorResource
 {
-    private static final String LEVEL = "level";
-
-    private static final EntityReference XWIKI_SPACE = new EntityReference("XWiki", EntityType.SPACE);
-
     @Inject
     private Logger logger;
 
     @Inject
-    private SecureContextFactory secureContextFactory;
+    private PatientRepository repository;
+
+    @Inject
+    private AuthorizationManager access;
+
+    @Inject
+    private UserManager users;
 
     /** Fills in missing reference fields with those from the current context document to create a full reference. */
     @Inject
@@ -89,98 +88,100 @@ public class DefaultCollaboratorResourceImpl extends XWikiResource implements Co
     private Container container;
 
     @Override
-    public PhenotipsUser getCollaborator(String patientId, String collaboratorId)
+    public Collaborators getCollaborators(String patientId)
     {
-        this.logger.debug(
-            "Retrieving collaborator with id [{}] of patient record [{}] via REST", collaboratorId, patientId);
-        // besides getting the patient, checks that the user has view access
-        PatientUserContext patientUserContext = this.secureContextFactory.getContext(patientId, Right.VIEW);
-
-        try {
-            PhenotipsUser result = this.createCollaborator(patientUserContext.getPatient(), collaboratorId.trim());
-
-            // adding links relative to this context
-            result.getLinks().add(new Link().withRel(Relations.SELF).withHref(this.uriInfo.getRequestUri().toString()));
-            result.getLinks().add(new Link().withRel(Relations.PATIENT_RECORD)
-                .withHref(this.uriInfo.getBaseUriBuilder().path(PatientResource.class).build(patientId).toString()));
-            result.getLinks().add(new Link().withRel(Relations.COLLABORATORS).withHref(
-                this.uriInfo.getBaseUriBuilder().path(CollaboratorsResource.class).build(patientId).toString()));
-            result.getLinks().add(new Link().withRel(Relations.PERMISSIONS).withHref(
-                this.uriInfo.getBaseUriBuilder().path(PermissionsResource.class).build(patientId).toString()));
-
-            return result;
-        } catch (Exception ex) {
-            throw new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR);
+        this.logger.debug("Retrieving collaborators of patient record [{}] via REST", patientId);
+        Patient patient = this.repository.getPatientById(patientId);
+        if (patient == null) {
+            this.logger.debug("No such patient record: [{}]", patientId);
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
+        User currentUser = this.users.getCurrentUser();
+        if (!this.access.hasAccess(Right.VIEW, currentUser == null ? null : currentUser.getProfileDocument(),
+            patient.getDocument())) {
+            this.logger.debug("View access denied to user [{}] on patient record [{}]", currentUser, patientId);
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
+        }
+
+        Collaborators result = this.factory.createCollaborators(patient, this.uriInfo);
+
+        // factor these out as common
+        result.withLinks(new Link().withRel(Relations.SELF).withHref(this.uriInfo.getRequestUri().toString()),
+            new Link().withRel(Relations.PATIENT_RECORD)
+                .withHref(this.uriInfo.getBaseUriBuilder().path(PatientResource.class).build(patientId).toString()));
+
+        // todo. put permissions link
+
+        return result;
     }
 
     @Override
-    public Response putLevelWithJson(String json, String patientId, String collaboratorId)
+    public Response putVisibilityWithJson(String json, String patientId)
     {
-        String level;
         try {
-            JSONObject jsonObject = JSONObject.fromObject(json);
-            level = jsonObject.getString(LEVEL);
+            String visibility = JSONObject.fromObject(json).getString("level");
+            return putVisibility(visibility, patientId);
         } catch (Exception ex) {
-            this.logger.debug("Changing collaborator's access level failed: the JSON was not properly formatted");
+            this.logger.error("The json was not properly formatted", ex.getMessage());
             throw new WebApplicationException(Response.Status.BAD_REQUEST);
         }
-        return putLevel(collaboratorId.trim(), level, patientId);
     }
 
     @Override
-    public Response putLevelWithForm(String patientId, String collaboratorId)
+    public Response putVisibilityWithForm(String patientId)
     {
-        Object levelInRequest = container.getRequest().getProperty(LEVEL);
-        if (levelInRequest instanceof String) {
-            String level = levelInRequest.toString().trim();
-            if (StringUtils.isNotBlank(level)) {
-                return putLevel(collaboratorId, level, patientId);
+        Object visibilityInRequest = container.getRequest().getProperty("visibility");
+        if (visibilityInRequest instanceof String) {
+            String visibility = visibilityInRequest.toString();
+            if (StringUtils.isNotBlank(visibility)) {
+                return putVisibility(visibility, patientId);
             }
         }
-        this.logger.error("The id, permissions level, or both were not provided or are invalid");
+        this.logger.error("The visibility level was not provided or is invalid");
         throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
-    @Override
-    public Response deleteCollaborator(String patientId, String collaboratorId)
+    public Response putVisibility(String visibilityNameRaw, String patientId)
     {
+        if (StringUtils.isBlank(visibilityNameRaw)) {
+            this.logger.error("The visibility level was not provided");
+            throw new WebApplicationException(Response.Status.BAD_REQUEST);
+        }
+        String visibilityName = visibilityNameRaw.trim();
+        // checking that the visibility level is valid,
+        Visibility visibility = null;
+        for (Visibility visibilityOption : this.manager.listVisibilityOptions())
+        {
+            if (StringUtils.equalsIgnoreCase(visibilityOption.getName(), visibilityName)) {
+                visibility = visibilityOption;
+                break;
+            }
+        }
+        if (visibility == null) {
+            this.logger.error("The visibility level does not match any available levels", patientId, visibilityName);
+            throw new WebApplicationException(Response.Status.BAD_REQUEST);
+        }
+
         this.logger.debug(
-            "Removing collaborator with id [{}] from patient record [{}] via REST", collaboratorId, patientId);
-        // besides getting the patient, checks that the user has edit access
-        PatientUserContext patientUserContext = this.secureContextFactory.getContext(patientId, Right.EDIT);
+            "Setting owner of the patient record [{}] visibility to [{}] via REST", patientId, visibilityName);
+        Patient patient = this.repository.getPatientById(patientId);
+        if (patient == null) {
+            this.logger.debug("No such patient record: [{}]", patientId);
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        }
+        User currentUser = this.users.getCurrentUser();
+        if (!this.access.hasAccess(Right.EDIT, currentUser == null ? null : currentUser.getProfileDocument(),
+            patient.getDocument())) {
+            this.logger.debug("Edit access denied to user [{}] on patient record [{}]", currentUser, patientId);
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
+        }
 
-        PatientAccess patientAccess =
-            new SecurePatientAccess(this.manager.getPatientAccess(patientUserContext.getPatient()), this.manager);
-        EntityReference collaboratorReference =
-            this.currentResolver.resolve(collaboratorId, EntityType.DOCUMENT, XWIKI_SPACE);
-
-        if (!patientAccess.removeCollaborator(collaboratorReference)) {
-            this.logger.error("Could not remove collaborator [{}] from patient record [{}]", collaboratorId, patientId);
+        PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
+        if (!patientAccess.setVisibility(visibility)) {
+            // todo. should this status be an internal server error, or a bad request?
             throw new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR);
         }
 
         return Response.noContent().build();
-    }
-
-    private PhenotipsUser createCollaborator(Patient patient, String id) throws Exception
-    {
-        String collaboratorId = id.trim();
-        // check if the space reference is used more than once in this class
-        EntityReference collaboratorReference =
-            this.currentResolver.resolve(collaboratorId, EntityType.DOCUMENT, XWIKI_SPACE);
-        PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
-        for (Collaborator collaborator : patientAccess.getCollaborators()) {
-            if (collaboratorReference.equals(collaborator.getUser())) {
-                return this.factory.createCollaborator(patient, collaborator);
-            }
-        }
-        throw new Exception(String.format(
-            "Collaborator of patient record [%s] with id [%s] was not found", patient.getId(), collaboratorId));
-    }
-
-    private Response putLevel(String collaboratorId, String accessLevelName, String patientId)
-    {
-        throw new NotImplementedException();
     }
 }

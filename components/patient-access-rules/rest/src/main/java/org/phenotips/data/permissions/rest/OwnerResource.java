@@ -17,7 +17,7 @@
  */
 package org.phenotips.data.permissions.rest;
 
-import org.phenotips.data.rest.model.PatientOwner;
+import org.phenotips.data.rest.model.PhenotipsUser;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -40,7 +40,7 @@ public interface OwnerResource
      * Todo. put a proper comment
      * The missing javadoc comment
      */
-    @GET PatientOwner getOwner(@PathParam("patient-id") String patientId);
+    @GET PhenotipsUser getOwner(@PathParam("patient-id") String patientId);
 
     @PUT
     @Consumes(MediaType.APPLICATION_JSON)

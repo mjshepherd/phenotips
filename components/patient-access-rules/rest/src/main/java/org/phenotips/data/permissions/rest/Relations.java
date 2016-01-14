@@ -48,6 +48,9 @@ public final class Relations
     /** Relation for links pointing to a vocabulary term. */
     public static final String VOCABULARY_TERM = "https://phenotips.org/rel/vocabularyTerm";
 
+    /** Relation for links pointing to a collaborator. */
+    public static final String COLLABORATOR = "https://phenotips.org/rel/collaborator";
+
     /** Avoid instantiation. */
     private Relations()
     {

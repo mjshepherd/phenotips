@@ -27,7 +27,7 @@ import org.phenotips.data.permissions.rest.Relations;
 import org.phenotips.data.permissions.script.SecurePatientAccess;
 import org.phenotips.data.rest.PatientResource;
 import org.phenotips.data.rest.model.Link;
-import org.phenotips.data.rest.model.PatientOwner;
+import org.phenotips.data.rest.model.PhenotipsUser;
 
 import org.xwiki.component.annotation.Component;
 import org.xwiki.container.Container;
@@ -92,7 +92,7 @@ public class DefaultOwnerResourceImpl extends XWikiResource implements OwnerReso
     private Container container;
 
     @Override
-    public PatientOwner getOwner(String patientId)
+    public PhenotipsUser getOwner(String patientId)
     {
         this.logger.debug("Retrieving patient record [{}] via REST", patientId);
         Patient patient = this.repository.getPatientById(patientId);
@@ -107,7 +107,7 @@ public class DefaultOwnerResourceImpl extends XWikiResource implements OwnerReso
             throw new WebApplicationException(Status.FORBIDDEN);
         }
 
-        PatientOwner result = this.factory.createPatientOwner(patient);
+        PhenotipsUser result = this.factory.createPatientOwner(patient);
 
         // adding links relative to this context
         result.getLinks().add(new Link().withRel(Relations.SELF).withHref(this.uriInfo.getRequestUri().toString()));
