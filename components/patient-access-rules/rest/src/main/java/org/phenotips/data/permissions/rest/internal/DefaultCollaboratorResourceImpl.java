@@ -21,18 +21,17 @@ import org.phenotips.data.Patient;
 import org.phenotips.data.PatientRepository;
 import org.phenotips.data.permissions.PatientAccess;
 import org.phenotips.data.permissions.PermissionsManager;
+import org.phenotips.data.permissions.Visibility;
+import org.phenotips.data.permissions.rest.CollaboratorResource;
 import org.phenotips.data.permissions.rest.DomainObjectFactory;
-import org.phenotips.data.permissions.rest.OwnerResource;
 import org.phenotips.data.permissions.rest.Relations;
 import org.phenotips.data.permissions.script.SecurePatientAccess;
 import org.phenotips.data.rest.PatientResource;
+import org.phenotips.data.rest.model.Collaborators;
 import org.phenotips.data.rest.model.Link;
-import org.phenotips.data.rest.model.PhenotipsUser;
 
 import org.xwiki.component.annotation.Component;
 import org.xwiki.container.Container;
-import org.xwiki.model.EntityType;
-import org.xwiki.model.reference.EntityReference;
 import org.xwiki.model.reference.EntityReferenceResolver;
 import org.xwiki.rest.XWikiResource;
 import org.xwiki.security.authorization.AuthorizationManager;
@@ -46,23 +45,21 @@ import javax.inject.Named;
 import javax.inject.Singleton;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
 
 import org.slf4j.Logger;
 
 import net.sf.json.JSONObject;
 
 /**
- * The default resource implementation for returning information about the owner of a patient record, and setting the
- * owner of a patient record.
+ *
  *
  * @version $Id$
- * @since 1.3M1
+ * @since todo
  */
 @Component
-@Named("org.phenotips.data.permissions.rest.internal.DefaultOwnerResourceImpl")
+@Named("org.phenotips.data.permissions.rest.internal.DefaultCollaboratorResourceImpl")
 @Singleton
-public class DefaultOwnerResourceImpl extends XWikiResource implements OwnerResource
+public class DefaultCollaboratorResourceImpl extends XWikiResource implements CollaboratorResource
 {
     @Inject
     private Logger logger;
@@ -87,91 +84,102 @@ public class DefaultOwnerResourceImpl extends XWikiResource implements OwnerReso
     @Inject
     private PermissionsManager manager;
 
-    /** Needed for retrieving the `owner` parameter during the PUT request (as part of setting a new owner). */
     @Inject
     private Container container;
 
     @Override
-    public PhenotipsUser getOwner(String patientId)
+    public Collaborators getCollaborators(String patientId)
     {
-        this.logger.debug("Retrieving patient record [{}] via REST", patientId);
+        this.logger.debug("Retrieving collaborators of patient record [{}] via REST", patientId);
         Patient patient = this.repository.getPatientById(patientId);
         if (patient == null) {
             this.logger.debug("No such patient record: [{}]", patientId);
-            throw new WebApplicationException(Status.NOT_FOUND);
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
         User currentUser = this.users.getCurrentUser();
         if (!this.access.hasAccess(Right.VIEW, currentUser == null ? null : currentUser.getProfileDocument(),
             patient.getDocument())) {
             this.logger.debug("View access denied to user [{}] on patient record [{}]", currentUser, patientId);
-            throw new WebApplicationException(Status.FORBIDDEN);
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
 
-        PhenotipsUser result = this.factory.createPatientOwner(patient);
+        Collaborators result = this.factory.createCollaborators(patient, this.uriInfo);
 
-        // adding links relative to this context
-        result.getLinks().add(new Link().withRel(Relations.SELF).withHref(this.uriInfo.getRequestUri().toString()));
-        result.getLinks().add(new Link().withRel(Relations.PATIENT_RECORD)
-            .withHref(this.uriInfo.getBaseUriBuilder().path(PatientResource.class).build(patientId).toString()));
+        // factor these out as common
+        result.withLinks(new Link().withRel(Relations.SELF).withHref(this.uriInfo.getRequestUri().toString()),
+            new Link().withRel(Relations.PATIENT_RECORD)
+                .withHref(this.uriInfo.getBaseUriBuilder().path(PatientResource.class).build(patientId).toString()));
 
-        // todo. add permissions link
+        // todo. put permissions link
 
         return result;
     }
 
-    @Override public Response putOwnerWithJson(String json, String patientId)
+    @Override
+    public Response putVisibilityWithJson(String json, String patientId)
     {
         try {
-            String id = JSONObject.fromObject(json).getString("id");
-            return putOwner(id, patientId);
+            String visibility = JSONObject.fromObject(json).getString("level");
+            return putVisibility(visibility, patientId);
         } catch (Exception ex) {
             this.logger.error("The json was not properly formatted", ex.getMessage());
-            throw new WebApplicationException(Status.BAD_REQUEST);
+            throw new WebApplicationException(Response.Status.BAD_REQUEST);
         }
     }
 
-    @Override public Response putOwnerWithForm(String patientId)
+    @Override
+    public Response putVisibilityWithForm(String patientId)
     {
-        Object ownerIdInRequest = container.getRequest().getProperty("owner");
-        if (ownerIdInRequest instanceof String) {
-            String ownerId = ownerIdInRequest.toString();
-            if (StringUtils.isNotBlank(ownerId)) {
-                return putOwner(ownerId, patientId);
+        Object visibilityInRequest = container.getRequest().getProperty("visibility");
+        if (visibilityInRequest instanceof String) {
+            String visibility = visibilityInRequest.toString();
+            if (StringUtils.isNotBlank(visibility)) {
+                return putVisibility(visibility, patientId);
             }
         }
-        this.logger.error("The owner id was not provided or is invalid");
-        throw new WebApplicationException(Status.BAD_REQUEST);
+        this.logger.error("The visibility level was not provided or is invalid");
+        throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
-    private Response putOwner(String ownerId, String patientId)
+    public Response putVisibility(String visibilityNameRaw, String patientId)
     {
-        if (StringUtils.isBlank(ownerId)) {
-            this.logger.error("The owner id was not provided");
-            throw new WebApplicationException(Status.BAD_REQUEST);
+        if (StringUtils.isBlank(visibilityNameRaw)) {
+            this.logger.error("The visibility level was not provided");
+            throw new WebApplicationException(Response.Status.BAD_REQUEST);
         }
-        this.logger.debug("Setting owner of the patient record [{}] to [{}] via REST", patientId, ownerId);
+        String visibilityName = visibilityNameRaw.trim();
+        // checking that the visibility level is valid,
+        Visibility visibility = null;
+        for (Visibility visibilityOption : this.manager.listVisibilityOptions())
+        {
+            if (StringUtils.equalsIgnoreCase(visibilityOption.getName(), visibilityName)) {
+                visibility = visibilityOption;
+                break;
+            }
+        }
+        if (visibility == null) {
+            this.logger.error("The visibility level does not match any available levels", patientId, visibilityName);
+            throw new WebApplicationException(Response.Status.BAD_REQUEST);
+        }
+
+        this.logger.debug(
+            "Setting owner of the patient record [{}] visibility to [{}] via REST", patientId, visibilityName);
         Patient patient = this.repository.getPatientById(patientId);
         if (patient == null) {
             this.logger.debug("No such patient record: [{}]", patientId);
-            throw new WebApplicationException(Status.NOT_FOUND);
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
         User currentUser = this.users.getCurrentUser();
         if (!this.access.hasAccess(Right.EDIT, currentUser == null ? null : currentUser.getProfileDocument(),
             patient.getDocument())) {
             this.logger.debug("Edit access denied to user [{}] on patient record [{}]", currentUser, patientId);
-            throw new WebApplicationException(Status.FORBIDDEN);
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
 
-        // fixme. the resolver resolves to 'data' space
-
-        EntityReference ownerReference =
-            this.currentResolver.resolve(ownerId, EntityType.DOCUMENT, new EntityReference("XWiki", EntityType.SPACE));
         PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
-        // fixme. there should be a check for current user being the owner
-        // existence and validity of the passed in owner should be checked by .setOwner
-        if (!patientAccess.setOwner(ownerReference)) {
+        if (!patientAccess.setVisibility(visibility)) {
             // todo. should this status be an internal server error, or a bad request?
-            throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
+            throw new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR);
         }
 
         return Response.noContent().build();

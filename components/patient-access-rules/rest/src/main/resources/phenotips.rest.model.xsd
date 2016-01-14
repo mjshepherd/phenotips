@@ -32,7 +32,7 @@
     </sequence>
   </complexType>
 
-  <complexType name="OwnerSummary">
+  <complexType name="UserSummary">
     <complexContent>
       <extension base="phenotips:LinkCollection">
         <sequence>
@@ -40,6 +40,16 @@
           <element name="name" type="string"/>
           <element name="email" type="string"/>
           <element name="type" type="string"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <complexType name="UserCollection">
+    <complexContent>
+      <extension base="phenotips:LinkCollection">
+        <sequence>
+          <element name="collaborators" type="phenotips:UserSummary" minOccurs="0" maxOccurs="unbounded"/>
         </sequence>
       </extension>
     </complexContent>
@@ -61,7 +71,9 @@
   *
   -->
 
-  <element name="patientOwner" type="phenotips:OwnerSummary"/>
+  <element name="phenotipsUser" type="phenotips:UserSummary"/>
 
   <element name="patientVisibility" type="phenotips:VisibilitySummary"/>
+
+  <element name="collaborators" type="phenotips:UserCollection"/>
 </schema>

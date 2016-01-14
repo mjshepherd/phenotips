@@ -18,14 +18,19 @@
 package org.phenotips.data.permissions.rest.internal;
 
 import org.phenotips.data.Patient;
+import org.phenotips.data.permissions.Collaborator;
 import org.phenotips.data.permissions.Owner;
 import org.phenotips.data.permissions.PatientAccess;
 import org.phenotips.data.permissions.PermissionsManager;
 import org.phenotips.data.permissions.Visibility;
+import org.phenotips.data.permissions.rest.CollaboratorResource;
 import org.phenotips.data.permissions.rest.DomainObjectFactory;
+import org.phenotips.data.permissions.rest.Relations;
 import org.phenotips.data.permissions.script.SecurePatientAccess;
-import org.phenotips.data.rest.model.PatientOwner;
+import org.phenotips.data.rest.model.Collaborators;
+import org.phenotips.data.rest.model.Link;
 import org.phenotips.data.rest.model.PatientVisibility;
+import org.phenotips.data.rest.model.PhenotipsUser;
 
 import org.xwiki.bridge.DocumentAccessBridge;
 import org.xwiki.component.annotation.Component;
@@ -40,9 +45,12 @@ import org.xwiki.stability.Unstable;
 import org.xwiki.users.User;
 import org.xwiki.users.UserManager;
 
+import java.util.Collection;
+
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
+import javax.ws.rs.core.UriInfo;
 
 import org.slf4j.Logger;
 
@@ -95,8 +103,9 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
     }
 
     @Override
-    public PatientOwner createPatientOwner(Patient patient)
+    public PhenotipsUser createPatientOwner(Patient patient)
     {
+        // todo. common security checks
         if (patient == null) {
             return null;
         }
@@ -106,19 +115,26 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
             return null;
         }
 
-        PatientOwner result = new PatientOwner();
-
         // todo. is this allowed?
         PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
         Owner owner = patientAccess.getOwner();
 
-        result.withId(owner.getUsername());
-        result.withType(owner.getType());
+        // links should be added at a later point, to allow the reuse of this method in different contexts
+
+        return createPhenotipsUser(owner.getUsername(), owner.getType(), owner.getUser());
+    }
+
+    private PhenotipsUser createPhenotipsUser(String username, String type, EntityReference reference)
+    {
+        PhenotipsUser result = new PhenotipsUser();
+
+        result.withId(username);
+        result.withType(type);
 
         // there is a chance of not being able to retrieve the rest of the data,
         // which should not prevent the returning of `id` and `type`
         try {
-            DocumentReference userRef = this.referenceResolver.resolve(owner.getUser());
+            DocumentReference userRef = this.referenceResolver.resolve(reference);
             XWikiDocument userDoc = (XWikiDocument) this.documentAccessBridge.getDocument(userRef);
             BaseObject userObj = userDoc.getXObject(this.userObjectReference);
 
@@ -132,16 +148,14 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
             result.withName(name);
             result.withEmail(email);
         } catch (Exception ex) {
-            this.logger.error("Could not load owner's document", ex.getMessage());
+            this.logger.error("Could not load user's or group's document", ex.getMessage());
         }
-
-        // links should be added at a later point, to allow the reuse of this method in different contexts
-
         return result;
     }
 
     public PatientVisibility createPatientVisibility(Patient patient)
     {
+        // todo. common security checks
         if (patient == null) {
             return null;
         }
@@ -159,5 +173,48 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
         result.withLevel(visibility.getName());
 
         return result;
+    }
+
+    public Collaborators createCollaborators(Patient patient, UriInfo uriInfo)
+    {
+        if (!commonSecurityChecks(patient)) {
+            return null;
+        }
+
+        PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
+        Collection<Collaborator> collaborators = patientAccess.getCollaborators();
+
+        Collaborators result = new Collaborators();
+        for (Collaborator collaborator : collaborators)
+        {
+            result.withCollaborators(this.createCollaborator(collaborator, uriInfo));
+        }
+
+        return result;
+    }
+
+    private PhenotipsUser createCollaborator(Collaborator collaborator, UriInfo uriInfo)
+    {
+        PhenotipsUser result =
+            this.createPhenotipsUser(collaborator.getUsername(), collaborator.getType(), collaborator.getUser());
+
+        String href = uriInfo.getBaseUriBuilder().path(CollaboratorResource.class)
+            .build(collaborator.getUser().getName()).toString();
+        result.withLinks(new Link().withRel(Relations.COLLABORATOR).withHref(href));
+
+        return result;
+    }
+
+    private boolean commonSecurityChecks(Patient patient)
+    {
+        if (patient == null) {
+            return false;
+        }
+        User currentUser = this.users.getCurrentUser();
+        if (!this.access.hasAccess(Right.VIEW, currentUser == null ? null : currentUser.getProfileDocument(),
+            patient.getDocument())) {
+            return false;
+        }
+        return true;
     }
 }

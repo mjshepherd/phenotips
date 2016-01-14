@@ -17,7 +17,7 @@
  */
 package org.phenotips.data.permissions.rest;
 
-import org.phenotips.data.rest.model.PhenotipsUser;
+import org.phenotips.data.rest.model.Collaborators;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -28,25 +28,26 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 /**
- * Resource for working with patient records owners, identified by their internal PhenoTips identifier.
+ * ToDo.
  *
  * @version $Id$
- * @since 1.3M1
+ * @since 1.2M5
  */
-@Path("/patients/{patient-id}/permissions/owner")
-public interface OwnerResource
+@Path("/patients/{patient-id}/permissions/visibility")
+public interface CollaboratorResource
 {
     /**
      * Todo. put a proper comment
      * The missing javadoc comment
      */
-    @GET PhenotipsUser getOwner(@PathParam("patient-id") String patientId);
+    @GET
+    Collaborators getCollaborators(@PathParam("patient-id") String patientId);
 
     @PUT
     @Consumes(MediaType.APPLICATION_JSON)
-    Response putOwnerWithJson(String json, @PathParam("patient-id") String patientId);
+    Response putVisibilityWithJson(String json, @PathParam("patient-id") String patientId);
 
     @PUT
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    Response putOwnerWithForm(@PathParam("patient-id") String patientId);
+    Response putVisibilityWithForm(@PathParam("patient-id") String patientId);
 }
