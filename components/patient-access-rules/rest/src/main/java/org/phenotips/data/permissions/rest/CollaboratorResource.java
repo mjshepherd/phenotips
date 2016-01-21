@@ -17,9 +17,10 @@
  */
 package org.phenotips.data.permissions.rest;
 
-import org.phenotips.data.rest.model.Collaborators;
+import org.phenotips.data.rest.model.PhenotipsUser;
 
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -33,21 +34,23 @@ import javax.ws.rs.core.Response;
  * @version $Id$
  * @since 1.2M5
  */
-@Path("/patients/{patient-id}/permissions/visibility")
+@Path("/patients/{patient-id}/permissions/collaborators/{collaborator-id}")
 public interface CollaboratorResource
 {
     /**
-     * Todo. put a proper comment
-     * The missing javadoc comment
+     * Todo. put a proper comment The missing javadoc comment
      */
-    @GET
-    Collaborators getCollaborators(@PathParam("patient-id") String patientId);
+    @GET PhenotipsUser getCollaborator(@PathParam("patient-id") String patientId,
+        @PathParam("collaborator-id") String collaboratorId);
 
     @PUT
-    @Consumes(MediaType.APPLICATION_JSON)
-    Response putVisibilityWithJson(String json, @PathParam("patient-id") String patientId);
+    @Consumes(MediaType.APPLICATION_JSON) Response putLevelWithJson(String json,
+        @PathParam("patient-id") String patientId, @PathParam("collaborator-id") String collaboratorId);
 
     @PUT
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    Response putVisibilityWithForm(@PathParam("patient-id") String patientId);
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED) Response putLevelWithForm(
+        @PathParam("patient-id") String patientId, @PathParam("collaborator-id") String collaboratorId);
+
+    @DELETE Response deleteCollaborator(@PathParam("patient-id") String patientId,
+        @PathParam("collaborator-id") String collaboratorId);
 }

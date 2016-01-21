@@ -50,4 +50,6 @@ public interface DomainObjectFactory
     PatientVisibility createPatientVisibility(Patient patient);
 
     Collaborators createCollaborators(Patient patient, UriInfo uriInfo);
+
+    PhenotipsUser createCollaborator(Patient patient, String id) throws Exception;
 }

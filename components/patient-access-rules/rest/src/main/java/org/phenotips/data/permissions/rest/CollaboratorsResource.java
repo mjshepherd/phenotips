@@ -19,8 +19,6 @@ package org.phenotips.data.permissions.rest;
 
 import org.phenotips.data.rest.model.Collaborators;
 
-import org.xwiki.component.annotation.Role;
-
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -32,71 +30,33 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 /**
- * Resource for working with patient record's collaborators, in bulk, where patients are identified by patient record's
- * internal PhenoTips identifier.
+ * ToDo.
  *
  * @version $Id$
- * @since 1.3M1
+ * @since 1.2M5
  */
-@Role
 @Path("/patients/{patient-id}/permissions/collaborators")
 public interface CollaboratorsResource
 {
     /**
-     * Retrieves information about the collaborators. If the indicated patient record doesn't exist, or if the user
-     * sending the request doesn't have the right to view the target patient record, an error is returned.
-     *
-     * @param patientId internal identifier of a patient record
-     * @return REST representation of a collection of patient record's collaborators
+     * Todo. put a proper comment
+     * The missing javadoc comment
      */
-    @GET Collaborators getCollaborators(@PathParam("patient-id") String patientId);
+    @GET
+    Collaborators getCollaborators(@PathParam("patient-id") String patientId);
 
-    /**
-     * Adds a new collaborator, or updates the permission level of a collaborator. If the indicated patient record
-     * doesn't exist, or if the user sending the request doesn't have the right to edit the target patient record, no
-     * change is performed and an error is returned.
-     *
-     * @param json a JSON representation of a collaborator, which must have "id" and "level" properties
-     * @param patientId internal identifier of a patient record
-     * @return a status message
-     */
     @POST
-    @Consumes(MediaType.APPLICATION_JSON) Response postCollaboratorWithJson(String json,
-        @PathParam("patient-id") String patientId);
+    @Consumes(MediaType.APPLICATION_JSON)
+    Response postCollaboratorWithJson(String json, @PathParam("patient-id") String patientId);
 
-    /**
-     * Adds a new collaborator, or updates the permission level of a collaborator. If the indicated patient record
-     * doesn't exist, or if the user sending the request doesn't have the right to edit the target patient record, no
-     * change is performed and an error is returned. The payload of the request must contain properties "collaborator"
-     * and "level".
-     *
-     * @param patientId internal identifier of a patient record
-     * @return a status message
-     */
     @POST
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED) Response postCollaboratorWithForm(
-        @PathParam("patient-id") String patientId);
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    Response postCollaboratorWithForm(@PathParam("patient-id") String patientId);
 
-    /**
-     * Updates all collaborators, replacing all previous collaborators. If the indicated patient record doesn't exist,
-     * or if the user sending the request doesn't have the right to edit the target patient record, no change is
-     * performed and an error is returned.
-     *
-     * @param json a JSON collection containing collaborators, each of which must be an object with "id" and "level"
-     * properties
-     * @param patientId internal identifier of a patient record
-     * @return a status message
-     */
     @PUT
-    @Consumes(MediaType.APPLICATION_JSON) Response putCollaborators(String json,
-        @PathParam("patient-id") String patientId);
+    @Consumes(MediaType.APPLICATION_JSON)
+    Response putCollaborators(String json, @PathParam("patient-id") String patientId);
 
-    /**
-     * Deletes all collaborators. If the indicated patient record doesn't exist, or if the user sending the request
-     * doesn't have the right to edit the target patient record, no change is performed and an error is returned.
-     *
-     * @param patientId internal identifier of a patient record
-     * @return a status message
-     */
-    @DELETE Response deleteCollaborators(@PathParam("patient-id") String patientId);
+    @DELETE
+    Response deleteCollaborators(@PathParam("patient-id") String patientId);
 }

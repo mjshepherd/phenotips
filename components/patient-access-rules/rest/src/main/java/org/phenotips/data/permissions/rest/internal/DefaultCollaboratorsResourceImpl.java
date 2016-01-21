@@ -17,6 +17,8 @@
  */
 package org.phenotips.data.permissions.rest.internal;
 
+import org.phenotips.data.Patient;
+import org.phenotips.data.PatientRepository;
 import org.phenotips.data.permissions.AccessLevel;
 import org.phenotips.data.permissions.Collaborator;
 import org.phenotips.data.permissions.PatientAccess;
@@ -24,10 +26,7 @@ import org.phenotips.data.permissions.PermissionsManager;
 import org.phenotips.data.permissions.internal.DefaultCollaborator;
 import org.phenotips.data.permissions.rest.CollaboratorsResource;
 import org.phenotips.data.permissions.rest.DomainObjectFactory;
-import org.phenotips.data.permissions.rest.PermissionsResource;
 import org.phenotips.data.permissions.rest.Relations;
-import org.phenotips.data.permissions.rest.internal.utils.PatientUserContext;
-import org.phenotips.data.permissions.rest.internal.utils.SecureContextFactory;
 import org.phenotips.data.permissions.script.SecurePatientAccess;
 import org.phenotips.data.rest.PatientResource;
 import org.phenotips.data.rest.model.Collaborators;
@@ -39,7 +38,10 @@ import org.xwiki.model.EntityType;
 import org.xwiki.model.reference.EntityReference;
 import org.xwiki.model.reference.EntityReferenceResolver;
 import org.xwiki.rest.XWikiResource;
+import org.xwiki.security.authorization.AuthorizationManager;
 import org.xwiki.security.authorization.Right;
+import org.xwiki.users.User;
+import org.xwiki.users.UserManager;
 
 import java.util.Collection;
 import java.util.LinkedList;
@@ -58,25 +60,27 @@ import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 /**
- * Default implementation for {@link CollaboratorsResource} using XWiki's support for REST resources.
+ *
  *
  * @version $Id$
- * @since 1.3M1
+ * @since todo
  */
 @Component
 @Named("org.phenotips.data.permissions.rest.internal.DefaultCollaboratorsResourceImpl")
 @Singleton
 public class DefaultCollaboratorsResourceImpl extends XWikiResource implements CollaboratorsResource
 {
-    private static final String LEVEL = "level";
-
-    private static final EntityReference XWIKI_SPACE = new EntityReference("XWiki", EntityType.SPACE);
-
     @Inject
     private Logger logger;
 
     @Inject
-    private SecureContextFactory secureContextFactory;
+    private PatientRepository repository;
+
+    @Inject
+    private AuthorizationManager access;
+
+    @Inject
+    private UserManager users;
 
     /** Fills in missing reference fields with those from the current context document to create a full reference. */
     @Inject
@@ -96,24 +100,23 @@ public class DefaultCollaboratorsResourceImpl extends XWikiResource implements C
     public Collaborators getCollaborators(String patientId)
     {
         this.logger.debug("Retrieving collaborators of patient record [{}] via REST", patientId);
-        // besides getting the patient, checks that the user has view access
-        PatientUserContext patientUserContext = this.secureContextFactory.getContext(patientId, Right.VIEW);
+        Patient patient = this.getPatient(patientId);
+        // checks that the user has view rights, otherwise throws an exception
+        this.getCurrentUserWithRights(patient, Right.VIEW);
 
-        Collaborators result = this.factory.createCollaborators(patientUserContext.getPatient(), this.uriInfo);
+        Collaborators result = this.factory.createCollaborators(patient, this.uriInfo);
 
         // factor these out as common
         result.withLinks(new Link().withRel(Relations.SELF).withHref(this.uriInfo.getRequestUri().toString()),
             new Link().withRel(Relations.PATIENT_RECORD)
-                .withHref(this.uriInfo.getBaseUriBuilder().path(PatientResource.class).build(patientId).toString()),
-            new Link().withRel(Relations.PERMISSIONS)
-                .withHref(this.uriInfo.getBaseUriBuilder().path(PermissionsResource.class).build(patientId).toString())
-        );
+                .withHref(this.uriInfo.getBaseUriBuilder().path(PatientResource.class).build(patientId).toString()));
+
+        // todo. put permissions link
 
         return result;
     }
 
-    @Override
-    public Response postCollaboratorWithJson(String json, String patientId)
+    @Override public Response postCollaboratorWithJson(String json, String patientId)
     {
         try {
             CollaboratorInfo info = this.collaboratorInfoFromJson(JSONObject.fromObject(json));
@@ -124,11 +127,10 @@ public class DefaultCollaboratorsResourceImpl extends XWikiResource implements C
         }
     }
 
-    @Override
-    public Response postCollaboratorWithForm(String patientId)
+    @Override public Response postCollaboratorWithForm(String patientId)
     {
         Object idInRequest = container.getRequest().getProperty("collaborator");
-        Object levelInRequest = container.getRequest().getProperty(LEVEL);
+        Object levelInRequest = container.getRequest().getProperty("level");
         if (idInRequest instanceof String && levelInRequest instanceof String) {
             String id = idInRequest.toString().trim();
             String level = levelInRequest.toString().trim();
@@ -140,30 +142,28 @@ public class DefaultCollaboratorsResourceImpl extends XWikiResource implements C
         throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
-    @Override
-    public Response deleteCollaborators(String patientId)
+    @Override public Response deleteCollaborators(String patientId)
     {
         return this.updateCollaborators(new LinkedList<Collaborator>(), patientId);
     }
 
-    @Override
-    public Response putCollaborators(String json, String patientId)
+    @Override public Response putCollaborators(String json, String patientId)
     {
         List<Collaborator> collaborators = this.jsonToCollaborators(json);
         return this.updateCollaborators(collaborators, patientId);
     }
 
-    private Response postCollaborator(String collaboratorId, String accessLevelName, String patientId)
+    public Response postCollaborator(String collaboratorId, String accessLevelName, String patientId)
     {
         this.checkCollaboratorInfo(collaboratorId, accessLevelName);
 
         this.logger.debug(
             "Adding collaborator [{}] with permission level [{}] to the patient record [{}] via REST",
             collaboratorId, accessLevelName, patientId);
-        // besides getting the patient, checks that the user has edit access
-        PatientUserContext patientUserContext = this.secureContextFactory.getContext(patientId, Right.EDIT);
-        PatientAccess patientAccess = new SecurePatientAccess(
-            this.manager.getPatientAccess(patientUserContext.getPatient()), this.manager);
+        Patient patient = this.getPatient(patientId);
+        // checking that the current user has rights
+        User currentUser = this.getCurrentUserWithRights(patient, Right.EDIT);
+        PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
 
         // will throw an error if something goes wrong
         this.addCollaborator(collaboratorId, accessLevelName.trim(), patientAccess);
@@ -172,11 +172,10 @@ public class DefaultCollaboratorsResourceImpl extends XWikiResource implements C
 
     private Response updateCollaborators(Collection<Collaborator> collaborators, String patientId)
     {
-        // besides getting the patient, checks that the user has edit access
-        PatientUserContext patientUserContext = this.secureContextFactory.getContext(patientId, Right.EDIT);
-
-        PatientAccess patientAccess = new SecurePatientAccess(
-            this.manager.getPatientAccess(patientUserContext.getPatient()), this.manager);
+        Patient patient = this.getPatient(patientId);
+        // checking that the current user has rights
+        this.getCurrentUserWithRights(patient, Right.EDIT);
+        PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
 
         if (!patientAccess.updateCollaborators(collaborators)) {
             this.logger.error("Could not update collaborators");
@@ -191,7 +190,7 @@ public class DefaultCollaboratorsResourceImpl extends XWikiResource implements C
         // checking that the access level is valid
         AccessLevel level = this.getAccessLevelFromString(levelName);
         EntityReference collaboratorReference = this.currentResolver.resolve(
-            id, EntityType.DOCUMENT, XWIKI_SPACE);
+            id, EntityType.DOCUMENT, new EntityReference("XWiki", EntityType.SPACE));
 
         // todo. function .addCollaborator has to check if the collaborator already exists before adding them
         if (!patientAccess.addCollaborator(collaboratorReference, level)) {
@@ -199,6 +198,16 @@ public class DefaultCollaboratorsResourceImpl extends XWikiResource implements C
             this.logger.error("Could not add a collaborator [{}] with access level [{}]", id, levelName);
             throw new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private Patient getPatient(String patientId)
+    {
+        Patient patient = this.repository.getPatientById(patientId);
+        if (patient == null) {
+            this.logger.debug("No such patient record: [{}]", patientId);
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        }
+        return patient;
     }
 
     private AccessLevel getAccessLevelFromString(String accessLevelName)
@@ -225,9 +234,21 @@ public class DefaultCollaboratorsResourceImpl extends XWikiResource implements C
         }
     }
 
+    private User getCurrentUserWithRights(Patient patient, Right right)
+    {
+        User currentUser = this.users.getCurrentUser();
+        if (!this.access.hasAccess(right, currentUser == null ? null : currentUser.getProfileDocument(),
+            patient.getDocument())) {
+            this.logger.debug("{} access denied to user [{}] on patient record [{}]",
+                right, currentUser, patient.getId());
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
+        }
+        return currentUser;
+    }
+
     private CollaboratorInfo collaboratorInfoFromJson(final JSONObject json)
     {
-        return new CollaboratorInfo(json.optString("id"), json.optString(LEVEL));
+        return new CollaboratorInfo(json.optString("id"), json.optString("level"));
     }
 
     private List<Collaborator> jsonToCollaborators(String json)
@@ -235,12 +256,14 @@ public class DefaultCollaboratorsResourceImpl extends XWikiResource implements C
         List<Collaborator> collaborators = new LinkedList<>();
         JSONArray collaboratorsArray = JSONArray.fromObject(json);
         for (Object collaboratorObject : collaboratorsArray) {
+            // todo. will this give an internal server error if it crashes?
             CollaboratorInfo collaboratorInfo =
                 this.collaboratorInfoFromJson(JSONObject.fromObject(collaboratorObject));
-            this.checkCollaboratorInfo(collaboratorInfo.getId(), collaboratorInfo.getLevel());
+            this.checkCollaboratorInfo(collaboratorInfo.id, collaboratorInfo.level);
 
-            EntityReference collaboratorReference =
-                this.currentResolver.resolve(collaboratorInfo.id, EntityType.DOCUMENT, XWIKI_SPACE);
+            // todo. feels like this chunk should not be in the endpoint
+            EntityReference collaboratorReference = this.currentResolver.resolve(
+                collaboratorInfo.id, EntityType.DOCUMENT, new EntityReference("XWiki", EntityType.SPACE));
             AccessLevel level = this.getAccessLevelFromString(collaboratorInfo.level);
             Collaborator collaborator = new DefaultCollaborator(collaboratorReference, level, null);
             collaborators.add(collaborator);
@@ -250,23 +273,13 @@ public class DefaultCollaboratorsResourceImpl extends XWikiResource implements C
 
     private class CollaboratorInfo
     {
-        private String id;
-        private String level;
+        String id;
+        String level;
 
-        CollaboratorInfo(String id, String level)
+        public CollaboratorInfo(String id, String level)
         {
             this.id = id;
             this.level = level;
-        }
-
-        public String getId()
-        {
-            return id;
-        }
-
-        public String getLevel()
-        {
-            return level;
         }
     }
 }
