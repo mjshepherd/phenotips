@@ -32,6 +32,7 @@ import org.phenotips.data.rest.model.PhenotipsUser;
 import org.xwiki.component.annotation.Component;
 import org.xwiki.container.Container;
 import org.xwiki.model.EntityType;
+import org.xwiki.model.reference.DocumentReference;
 import org.xwiki.model.reference.EntityReference;
 import org.xwiki.model.reference.EntityReferenceResolver;
 import org.xwiki.rest.XWikiResource;
@@ -162,14 +163,18 @@ public class DefaultOwnerResourceImpl extends XWikiResource implements OwnerReso
             throw new WebApplicationException(Status.FORBIDDEN);
         }
 
-        // fixme. the resolver resolves to 'data' space
-
         EntityReference ownerReference =
             this.currentResolver.resolve(ownerId, EntityType.DOCUMENT, new EntityReference("XWiki", EntityType.SPACE));
+        // todo. ask Sergiu as to what the right thing to do is
+        // the code in DefaultPatientAccessHelper needs to be changed
+        // this is just a hack
+        // the helper needs to use this.entitySerializer.serialize
+        DocumentReference ownerDocRef = new DocumentReference(ownerReference);
+
         PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
         // fixme. there should be a check for current user being the owner
         // existence and validity of the passed in owner should be checked by .setOwner
-        if (!patientAccess.setOwner(ownerReference)) {
+        if (!patientAccess.setOwner(ownerDocRef)) {
             // todo. should this status be an internal server error, or a bad request?
             throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
         }

@@ -147,7 +147,7 @@ public class DefaultVisibilityResourceImpl extends XWikiResource implements Visi
             throw new WebApplicationException(Response.Status.BAD_REQUEST);
         }
         String visibilityName = visibilityNameRaw.trim();
-        // checking that the visibility level is valid,
+        // checking that the visibility level is valid
         Visibility visibility = null;
         for (Visibility visibilityOption : this.manager.listVisibilityOptions())
         {
@@ -157,7 +157,7 @@ public class DefaultVisibilityResourceImpl extends XWikiResource implements Visi
             }
         }
         if (visibility == null) {
-            this.logger.error("The visibility level does not match any available levels", patientId, visibilityName);
+            this.logger.error("The visibility level does not match any available levels");
             throw new WebApplicationException(Response.Status.BAD_REQUEST);
         }
 

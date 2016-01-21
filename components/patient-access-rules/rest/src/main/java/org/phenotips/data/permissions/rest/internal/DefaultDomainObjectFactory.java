@@ -36,6 +36,7 @@ import org.xwiki.bridge.DocumentAccessBridge;
 import org.xwiki.component.annotation.Component;
 import org.xwiki.component.phase.Initializable;
 import org.xwiki.component.phase.InitializationException;
+import org.xwiki.model.EntityType;
 import org.xwiki.model.reference.DocumentReference;
 import org.xwiki.model.reference.DocumentReferenceResolver;
 import org.xwiki.model.reference.EntityReference;
@@ -96,22 +97,19 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
 
     EntityReference userObjectReference;
 
+    EntityReference groupObjectReference;
+
     @Override
     public void initialize() throws InitializationException
     {
         this.userObjectReference = this.stringResolver.resolve("XWiki.XWikiUsers");
+        this.groupObjectReference = this.stringResolver.resolve("PhenoTips.PhenoTipsGroupClass");
     }
 
     @Override
     public PhenotipsUser createPatientOwner(Patient patient)
     {
-        // todo. common security checks
-        if (patient == null) {
-            return null;
-        }
-        User currentUser = this.users.getCurrentUser();
-        if (!this.access.hasAccess(Right.VIEW, currentUser == null ? null : currentUser.getProfileDocument(),
-            patient.getDocument())) {
+        if (!commonSecurityChecks(patient)) {
             return null;
         }
 
@@ -138,6 +136,8 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
             XWikiDocument userDoc = (XWikiDocument) this.documentAccessBridge.getDocument(userRef);
             BaseObject userObj = userDoc.getXObject(this.userObjectReference);
 
+            // todo. implement for groups
+
             String email = userObj.getStringValue("email");
             StringBuilder nameBuilder = new StringBuilder();
             nameBuilder.append(userObj.getStringValue("first_name"));
@@ -155,13 +155,7 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
 
     public PatientVisibility createPatientVisibility(Patient patient)
     {
-        // todo. common security checks
-        if (patient == null) {
-            return null;
-        }
-        User currentUser = this.users.getCurrentUser();
-        if (!this.access.hasAccess(Right.VIEW, currentUser == null ? null : currentUser.getProfileDocument(),
-            patient.getDocument())) {
+        if (!commonSecurityChecks(patient)) {
             return null;
         }
 
@@ -187,22 +181,39 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
         Collaborators result = new Collaborators();
         for (Collaborator collaborator : collaborators)
         {
-            result.withCollaborators(this.createCollaborator(collaborator, uriInfo));
+            PhenotipsUser collaboratorObject = this.createCollaborator(collaborator);
+            String href = uriInfo.getBaseUriBuilder().path(CollaboratorResource.class)
+                .build(collaborator.getUser().getName()).toString();
+            collaboratorObject.withLinks(new Link().withRel(Relations.COLLABORATOR).withHref(href));
+
+            result.withCollaborators(collaboratorObject);
         }
 
         return result;
     }
 
-    private PhenotipsUser createCollaborator(Collaborator collaborator, UriInfo uriInfo)
+    @Override public PhenotipsUser createCollaborator(Patient patient, String id) throws Exception
     {
-        PhenotipsUser result =
-            this.createPhenotipsUser(collaborator.getUsername(), collaborator.getType(), collaborator.getUser());
+        if (!commonSecurityChecks(patient)) {
+            return null;
+        }
+        String collaboratorId = id.trim();
+        // check if the space reference is used more than once in this class
+        EntityReference collaboratorReference = this.stringResolver.resolve(collaboratorId, new EntityReference("XWiki",
+            EntityType.SPACE));
+        PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
+        for (Collaborator collaborator : patientAccess.getCollaborators()) {
+            if (collaboratorReference.equals(collaborator.getUser())) {
+                return this.createCollaborator(collaborator);
+            }
+        }
+        throw new Exception(String.format(
+            "Collaborator of patient record [%s] with id [%s] was not found", patient.getId(), collaboratorId));
+    }
 
-        String href = uriInfo.getBaseUriBuilder().path(CollaboratorResource.class)
-            .build(collaborator.getUser().getName()).toString();
-        result.withLinks(new Link().withRel(Relations.COLLABORATOR).withHref(href));
-
-        return result;
+    private PhenotipsUser createCollaborator(Collaborator collaborator)
+    {
+        return this.createPhenotipsUser(collaborator.getUsername(), collaborator.getType(), collaborator.getUser());
     }
 
     private boolean commonSecurityChecks(Patient patient)

@@ -51,6 +51,9 @@ public final class Relations
     /** Relation for links pointing to a collaborator. */
     public static final String COLLABORATOR = "https://phenotips.org/rel/collaborator";
 
+    /** Relation for links pointing to a collection of collaborators. */
+    public static final String COLLABORATORS = "https://phenotips.org/rel/collaborators";
+
     /** Avoid instantiation. */
     private Relations()
     {

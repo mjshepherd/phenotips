@@ -17,11 +17,12 @@
  */
 package org.phenotips.data.permissions.rest;
 
-import org.phenotips.data.rest.model.PhenotipsUser;
+import org.phenotips.data.rest.model.Collaborators;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -34,23 +35,28 @@ import javax.ws.rs.core.Response;
  * @version $Id$
  * @since 1.2M5
  */
-@Path("/patients/{patient-id}/permissions/collaborators/{collaborator-id}")
-public interface CollaboratorResource
+@Path("/patients/{patient-id}/permissions/collaborators")
+public interface CollaboratorsResource
 {
     /**
-     * Todo. put a proper comment The missing javadoc comment
+     * Todo. put a proper comment
+     * The missing javadoc comment
      */
-    @GET PhenotipsUser getCollaborator(@PathParam("patient-id") String patientId,
-        @PathParam("collaborator-id") String collaboratorId);
+    @GET
+    Collaborators getCollaborators(@PathParam("patient-id") String patientId);
+
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    Response postCollaboratorWithJson(String json, @PathParam("patient-id") String patientId);
+
+    @POST
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    Response postCollaboratorWithForm(@PathParam("patient-id") String patientId);
 
     @PUT
-    @Consumes(MediaType.APPLICATION_JSON) Response putLevelWithJson(String json,
-        @PathParam("patient-id") String patientId, @PathParam("collaborator-id") String collaboratorId);
+    @Consumes(MediaType.APPLICATION_JSON)
+    Response putCollaborators(String json, @PathParam("patient-id") String patientId);
 
-    @PUT
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED) Response putLevelWithForm(
-        @PathParam("patient-id") String patientId, @PathParam("collaborator-id") String collaboratorId);
-
-    @DELETE Response deleteCollaborator(@PathParam("patient-id") String patientId,
-        @PathParam("collaborator-id") String collaboratorId);
+    @DELETE
+    Response deleteCollaborators(@PathParam("patient-id") String patientId);
 }
