@@ -118,7 +118,7 @@ public class DefaultCollaboratorResourceImpl extends XWikiResource implements Co
     @Override public Response putLevelWithJson(String json, String patientId, String collaboratorId)
     {
         // todo. will null pointer throw the correct exception
-        return putCollaborator(collaboratorId.trim(), JSONObject.fromObject(json).optString("level"), patientId);
+        return putLevel(collaboratorId.trim(), JSONObject.fromObject(json).optString("level"), patientId);
     }
 
     @Override public Response putLevelWithForm(String patientId, String collaboratorId)
@@ -127,7 +127,7 @@ public class DefaultCollaboratorResourceImpl extends XWikiResource implements Co
         if (levelInRequest instanceof String) {
             String level = levelInRequest.toString().trim();
             if (StringUtils.isNotBlank(level)) {
-                return putCollaborator(collaboratorId, level, patientId);
+                return putLevel(collaboratorId, level, patientId);
             }
         }
         this.logger.error("The id, permissions level, or both were not provided or are invalid");
@@ -154,7 +154,7 @@ public class DefaultCollaboratorResourceImpl extends XWikiResource implements Co
         return Response.noContent().build();
     }
 
-    public Response putCollaborator(String collaboratorId, String accessLevelName, String patientId)
+    public Response putLevel(String collaboratorId, String accessLevelName, String patientId)
     {
         throw new NotImplementedException();
     }

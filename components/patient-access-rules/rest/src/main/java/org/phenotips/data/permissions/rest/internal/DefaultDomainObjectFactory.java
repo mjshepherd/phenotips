@@ -53,6 +53,7 @@ import javax.inject.Named;
 import javax.inject.Singleton;
 import javax.ws.rs.core.UriInfo;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 
 import com.xpn.xwiki.doc.XWikiDocument;
@@ -133,24 +134,60 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
         // which should not prevent the returning of `id` and `type`
         try {
             DocumentReference userRef = this.referenceResolver.resolve(reference);
-            XWikiDocument userDoc = (XWikiDocument) this.documentAccessBridge.getDocument(userRef);
-            BaseObject userObj = userDoc.getXObject(this.userObjectReference);
+            XWikiDocument entityDocument = (XWikiDocument) this.documentAccessBridge.getDocument(userRef);
+            NameEmail nameEmail = new NameEmail(type, entityDocument);
 
-            // todo. implement for groups
-
-            String email = userObj.getStringValue("email");
-            StringBuilder nameBuilder = new StringBuilder();
-            nameBuilder.append(userObj.getStringValue("first_name"));
-            nameBuilder.append(" ");
-            nameBuilder.append(userObj.getStringValue("last_name"));
-            String name = nameBuilder.toString().trim();
-
-            result.withName(name);
-            result.withEmail(email);
+            result.withName(nameEmail.getName());
+            result.withEmail(nameEmail.getEmail());
         } catch (Exception ex) {
             this.logger.error("Could not load user's or group's document", ex.getMessage());
         }
         return result;
+    }
+
+    private class NameEmail
+    {
+        private String name;
+        private String email;
+        public NameEmail(String type, XWikiDocument document) throws Exception
+        {
+            if (StringUtils.equals("group", type))
+            {
+                fetchFromGroup(document);
+            } else if (StringUtils.equals("user", type)) {
+                fetchFromUser(document);
+            } else {
+                throw new Exception("The type does not match any know (user) type");
+            }
+        }
+
+        private void fetchFromUser(XWikiDocument document)
+        {
+            BaseObject userObj = document.getXObject(userObjectReference);
+            this.email = userObj.getStringValue("email");
+            StringBuilder nameBuilder = new StringBuilder();
+            nameBuilder.append(userObj.getStringValue("first_name"));
+            nameBuilder.append(" ");
+            nameBuilder.append(userObj.getStringValue("last_name"));
+            this.name = nameBuilder.toString().trim();
+        }
+
+        private void fetchFromGroup(XWikiDocument document)
+        {
+            BaseObject groupObject = document.getXObject(groupObjectReference);
+            this.email = groupObject.getStringValue("contact");
+            this.name = document.getDocumentReference().getName();
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public String getEmail()
+        {
+            return email;
+        }
     }
 
     public PatientVisibility createPatientVisibility(Patient patient)
@@ -183,7 +220,7 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
         {
             PhenotipsUser collaboratorObject = this.createCollaborator(collaborator);
             String href = uriInfo.getBaseUriBuilder().path(CollaboratorResource.class)
-                .build(collaborator.getUser().getName()).toString();
+                .build(patient.getId(), collaborator.getUser().getName()).toString();
             collaboratorObject.withLinks(new Link().withRel(Relations.COLLABORATOR).withHref(href));
 
             result.withCollaborators(collaboratorObject);
