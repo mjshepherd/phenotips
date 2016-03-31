@@ -27,10 +27,11 @@ import org.phenotips.data.permissions.rest.CollaboratorResource;
 import org.phenotips.data.permissions.rest.DomainObjectFactory;
 import org.phenotips.data.permissions.rest.Relations;
 import org.phenotips.data.permissions.script.SecurePatientAccess;
-import org.phenotips.data.rest.model.Collaborators;
+import org.phenotips.data.rest.model.CollaboratorRepresentation;
+import org.phenotips.data.rest.model.CollaboratorsRepresentation;
 import org.phenotips.data.rest.model.Link;
-import org.phenotips.data.rest.model.PatientVisibility;
-import org.phenotips.data.rest.model.PhenotipsUser;
+import org.phenotips.data.rest.model.UserSummary;
+import org.phenotips.data.rest.model.VisibilityRepresentation;
 
 import org.xwiki.bridge.DocumentAccessBridge;
 import org.xwiki.component.annotation.Component;
@@ -40,11 +41,8 @@ import org.xwiki.model.EntityType;
 import org.xwiki.model.reference.DocumentReference;
 import org.xwiki.model.reference.DocumentReferenceResolver;
 import org.xwiki.model.reference.EntityReference;
-import org.xwiki.security.authorization.AuthorizationManager;
-import org.xwiki.security.authorization.Right;
+import org.xwiki.model.reference.EntityReferenceSerializer;
 import org.xwiki.stability.Unstable;
-import org.xwiki.users.User;
-import org.xwiki.users.UserManager;
 
 import java.util.Collection;
 
@@ -70,20 +68,9 @@ import com.xpn.xwiki.objects.BaseObject;
 @Singleton
 public class DefaultDomainObjectFactory implements DomainObjectFactory, Initializable
 {
-    @Inject
-    private AuthorizationManager access;
-
-    @Inject
-    private UserManager users;
-
     /** Provides access to the underlying data storage. */
     @Inject
     private DocumentAccessBridge documentAccessBridge;
-
-    /** Parses string representations of document references into proper references. */
-    @Inject
-    @Named("current")
-    private DocumentReferenceResolver<String> stringResolver;
 
     /** Parses string representations of document references into proper references. */
     @Inject
@@ -96,23 +83,28 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
     @Inject
     private Logger logger;
 
-    EntityReference userObjectReference;
+    @Inject
+    private EntityReferenceSerializer<String> entitySerializer;
 
-    EntityReference groupObjectReference;
+    private EntityReference userObjectReference;
+
+    private EntityReference groupObjectReference;
 
     @Override
     public void initialize() throws InitializationException
     {
-        this.userObjectReference = this.stringResolver.resolve("XWiki.XWikiUsers");
-        this.groupObjectReference = this.stringResolver.resolve("PhenoTips.PhenoTipsGroupClass");
+        this.userObjectReference = this.referenceResolver.resolve(
+            new EntityReference("XWikiUsers", EntityType.DOCUMENT), new EntityReference("XWiki", EntityType.SPACE));
+        this.groupObjectReference =
+            this.referenceResolver.resolve(new EntityReference("PhenoTipsGroupClass", EntityType.DOCUMENT),
+                new EntityReference("PhenoTips", EntityType.SPACE));
     }
 
     @Override
-    public PhenotipsUser createPatientOwner(Patient patient)
+    public UserSummary createOwnerRepresentation(Patient patient)
     {
-        if (!commonSecurityChecks(patient)) {
-            return null;
-        }
+        // todo. this method should not return UserSummary - it should return OwnerRepresentation, but the class
+        // generator doesn't want to generate OwnerRepresentation
 
         // todo. is this allowed?
         PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
@@ -120,20 +112,18 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
 
         // links should be added at a later point, to allow the reuse of this method in different contexts
 
-        return createPhenotipsUser(owner.getUsername(), owner.getType(), owner.getUser());
+        return loadUserSummary(new UserSummary(), owner.getUser(), owner.getType());
     }
 
-    private PhenotipsUser createPhenotipsUser(String username, String type, EntityReference reference)
+    private UserSummary loadUserSummary(UserSummary result, EntityReference user, String type)
     {
-        PhenotipsUser result = new PhenotipsUser();
-
-        result.withId(username);
+        result.withId(this.entitySerializer.serialize(user));
         result.withType(type);
 
         // there is a chance of not being able to retrieve the rest of the data,
         // which should not prevent the returning of `id` and `type`
         try {
-            DocumentReference userRef = this.referenceResolver.resolve(reference);
+            DocumentReference userRef = this.referenceResolver.resolve(user);
             XWikiDocument entityDocument = (XWikiDocument) this.documentAccessBridge.getDocument(userRef);
             NameEmail nameEmail = new NameEmail(type, entityDocument);
 
@@ -149,7 +139,7 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
     {
         private String name;
         private String email;
-        public NameEmail(String type, XWikiDocument document) throws Exception
+        NameEmail(String type, XWikiDocument document) throws Exception
         {
             if (StringUtils.equals("group", type))
             {
@@ -190,35 +180,39 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
         }
     }
 
-    public PatientVisibility createPatientVisibility(Patient patient)
+    @Override
+    public VisibilityRepresentation createVisibilityRepresentation(Patient patient)
     {
-        if (!commonSecurityChecks(patient)) {
-            return null;
-        }
-
-        PatientVisibility result = new PatientVisibility();
         // todo. is this allowed?
         PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
         Visibility visibility = patientAccess.getVisibility();
 
-        result.withLevel(visibility.getName());
-
-        return result;
+        return this.createVisibilityRepresentation(visibility);
     }
 
-    public Collaborators createCollaborators(Patient patient, UriInfo uriInfo)
+    @Override
+    public VisibilityRepresentation createVisibilityRepresentation(Visibility visibility)
     {
-        if (!commonSecurityChecks(patient)) {
+        if (visibility == null) {
             return null;
         }
+        return (new VisibilityRepresentation())
+                .withLevel(visibility.getName())
+                .withLabel(visibility.getLabel())
+                .withDescription(visibility.getDescription());
+    }
 
+    @Override
+    public CollaboratorsRepresentation createCollaboratorsRepresentation(Patient patient, UriInfo uriInfo)
+    {
         PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
         Collection<Collaborator> collaborators = patientAccess.getCollaborators();
 
-        Collaborators result = new Collaborators();
+        CollaboratorsRepresentation result = new CollaboratorsRepresentation();
         for (Collaborator collaborator : collaborators)
         {
-            PhenotipsUser collaboratorObject = this.createCollaborator(collaborator);
+            CollaboratorRepresentation collaboratorObject =
+                this.createCollaboratorRepresentation(patientAccess, collaborator);
             String href = uriInfo.getBaseUriBuilder().path(CollaboratorResource.class)
                 .build(patient.getId(), collaborator.getUser().getName()).toString();
             collaboratorObject.withLinks(new Link().withRel(Relations.COLLABORATOR).withHref(href));
@@ -229,40 +223,20 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory, Initiali
         return result;
     }
 
-    @Override public PhenotipsUser createCollaborator(Patient patient, String id) throws Exception
+    @Override
+    public CollaboratorRepresentation createCollaboratorRepresentation(Patient patient, Collaborator collaborator)
     {
-        if (!commonSecurityChecks(patient)) {
-            return null;
-        }
-        String collaboratorId = id.trim();
-        // check if the space reference is used more than once in this class
-        EntityReference collaboratorReference = this.stringResolver.resolve(collaboratorId, new EntityReference("XWiki",
-            EntityType.SPACE));
         PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
-        for (Collaborator collaborator : patientAccess.getCollaborators()) {
-            if (collaboratorReference.equals(collaborator.getUser())) {
-                return this.createCollaborator(collaborator);
-            }
-        }
-        throw new Exception(String.format(
-            "Collaborator of patient record [%s] with id [%s] was not found", patient.getId(), collaboratorId));
+        return this.createCollaboratorRepresentation(patientAccess, collaborator);
     }
 
-    private PhenotipsUser createCollaborator(Collaborator collaborator)
+    private CollaboratorRepresentation createCollaboratorRepresentation(
+        PatientAccess patientAccess, Collaborator collaborator)
     {
-        return this.createPhenotipsUser(collaborator.getUsername(), collaborator.getType(), collaborator.getUser());
-    }
-
-    private boolean commonSecurityChecks(Patient patient)
-    {
-        if (patient == null) {
-            return false;
-        }
-        User currentUser = this.users.getCurrentUser();
-        if (!this.access.hasAccess(Right.VIEW, currentUser == null ? null : currentUser.getProfileDocument(),
-            patient.getDocument())) {
-            return false;
-        }
-        return true;
+        String accessLevel = patientAccess.getAccessLevel(collaborator.getUser()).toString();
+        CollaboratorRepresentation result = (CollaboratorRepresentation) this.loadUserSummary(
+            new CollaboratorRepresentation(), collaborator.getUser(), collaborator.getType());
+        result.withLevel(accessLevel);
+        return result;
     }
 }

@@ -45,6 +45,16 @@
     </complexContent>
   </complexType>
 
+  <complexType name="CollaboratorSummary">
+    <complexContent>
+      <extension base="phenotips:UserSummary">
+        <sequence>
+          <element name="level" type="string"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
   <complexType name="UserCollection">
     <complexContent>
       <extension base="phenotips:LinkCollection">
@@ -60,6 +70,30 @@
       <extension base="phenotips:LinkCollection">
         <sequence>
           <element name="level" type="string"/>
+          <element name="label" type="string"/>
+          <element name="description" type="string"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <complexType name="VisibilityOptions">
+    <complexContent>
+      <extension base="phenotips:LinkCollection">
+        <sequence>
+          <element name="visibility" type="phenotips:VisibilitySummary" minOccurs="0" maxOccurs="unbounded"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <complexType name="PermissionsSummary">
+    <complexContent>
+      <extension base="phenotips:LinkCollection">
+        <sequence>
+          <element name="owner" type="phenotips:UserSummary"/>
+          <element name="visibility" type="phenotips:VisibilitySummary"/>
+          <element name="collaborators" type="phenotips:UserCollection"/>
         </sequence>
       </extension>
     </complexContent>
@@ -71,9 +105,17 @@
   *
   -->
 
-  <element name="phenotipsUser" type="phenotips:UserSummary"/>
+  <!-- this bugger does not want to be generated as OwnerRepresentation class,
+  like the rest - it generates as UserSummary -->
+  <element name="ownerRepresentation" type="phenotips:UserSummary"/>
 
-  <element name="patientVisibility" type="phenotips:VisibilitySummary"/>
+  <element name="collaboratorRepresentation" type="phenotips:CollaboratorSummary"/>
 
-  <element name="collaborators" type="phenotips:UserCollection"/>
+  <element name="visibilityRepresentation" type="phenotips:VisibilitySummary"/>
+
+  <element name="collaboratorsRepresentation" type="phenotips:UserCollection"/>
+
+  <element name="visibilityOptionsRepresentation" type="phenotips:VisibilityOptions"/>
+
+  <element name="permissionsRepresentation" type="phenotips:PermissionsSummary"/>
 </schema>

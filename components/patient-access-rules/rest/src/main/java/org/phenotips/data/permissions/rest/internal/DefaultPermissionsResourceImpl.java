@@ -23,18 +23,17 @@ import org.phenotips.data.permissions.rest.OwnerResource;
 import org.phenotips.data.permissions.rest.PermissionsResource;
 import org.phenotips.data.permissions.rest.Relations;
 import org.phenotips.data.permissions.rest.VisibilityResource;
-import org.phenotips.data.permissions.rest.internal.utils.PatientUserContext;
+import org.phenotips.data.permissions.rest.internal.utils.PatientAccessContext;
 import org.phenotips.data.permissions.rest.internal.utils.SecureContextFactory;
 import org.phenotips.data.rest.PatientResource;
-import org.phenotips.data.rest.model.Collaborators;
+import org.phenotips.data.rest.model.CollaboratorsRepresentation;
 import org.phenotips.data.rest.model.Link;
-import org.phenotips.data.rest.model.PatientVisibility;
-import org.phenotips.data.rest.model.Permissions;
-import org.phenotips.data.rest.model.PhenotipsUser;
+import org.phenotips.data.rest.model.PermissionsRepresentation;
+import org.phenotips.data.rest.model.UserSummary;
+import org.phenotips.data.rest.model.VisibilityRepresentation;
 
 import org.xwiki.component.annotation.Component;
 import org.xwiki.rest.XWikiResource;
-import org.xwiki.security.authorization.Right;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -79,16 +78,18 @@ public class DefaultPermissionsResourceImpl extends XWikiResource implements Per
     private CollaboratorsResource collaboratorsResource;
 
     @Override
-    public Permissions getPermissions(String patientId)
+    public PermissionsRepresentation getPermissions(String patientId)
     {
         this.logger.debug("Retrieving patient record [{}] via REST", patientId);
         // besides getting the patient, checks that the user has view access
-        PatientUserContext patientUserContext = this.secureContextFactory.getContext(patientId, Right.VIEW);
+        PatientAccessContext patientAccessContext = this.secureContextFactory.getContext(patientId, "view");
 
-        Permissions result = new Permissions();
-        PhenotipsUser owner = this.factory.createPatientOwner(patientUserContext.getPatient());
-        PatientVisibility visibility = this.factory.createPatientVisibility(patientUserContext.getPatient());
-        Collaborators collaborators = this.factory.createCollaborators(patientUserContext.getPatient(), this.uriInfo);
+        PermissionsRepresentation result = new PermissionsRepresentation();
+        UserSummary owner = this.factory.createOwnerRepresentation(patientAccessContext.getPatient());
+        VisibilityRepresentation visibility =
+            this.factory.createVisibilityRepresentation(patientAccessContext.getPatient());
+        CollaboratorsRepresentation collaborators =
+            this.factory.createCollaboratorsRepresentation(patientAccessContext.getPatient(), this.uriInfo);
 
         // adding links into sub-parts
         owner.getLinks().add(new Link().withRel(Relations.OWNER)
@@ -97,7 +98,6 @@ public class DefaultPermissionsResourceImpl extends XWikiResource implements Per
             .withHref(this.uriInfo.getBaseUriBuilder().path(VisibilityResource.class).build(patientId).toString()));
         collaborators.getLinks().add(new Link().withRel(Relations.COLLABORATORS)
             .withHref(this.uriInfo.getBaseUriBuilder().path(CollaboratorsResource.class).build(patientId).toString()));
-
 
         result.withOwner(owner);
         result.withVisibility(visibility);

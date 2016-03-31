@@ -17,7 +17,9 @@
  */
 package org.phenotips.data.permissions.rest;
 
-import org.phenotips.data.rest.model.PhenotipsUser;
+import org.phenotips.data.rest.model.UserSummary;
+
+import org.xwiki.component.annotation.Role;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -28,25 +30,49 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 /**
- * Resource for working with patient records owners, identified by their internal PhenoTips identifier.
+ * Resource for working with patient record's owners, identified by patient record's internal PhenoTips identifier.
  *
  * @version $Id$
  * @since 1.3M1
  */
+@Role
 @Path("/patients/{patient-id}/permissions/owner")
 public interface OwnerResource
 {
     /**
-     * Todo. put a proper comment
-     * The missing javadoc comment
+     * Retrieves the owner of a patient record - which is found by the passed in patient identifier - if the indicated
+     * patient record doesn't exist, or if the user sending the request doesn't have the right to view the target
+     * patient record, an error is returned.
+     *
+     * @param patientId internal identifier of a patient record
+     * @return REST representation of an owner of a patient record
      */
-    @GET PhenotipsUser getOwner(@PathParam("patient-id") String patientId);
+    @GET UserSummary getOwner(@PathParam("patient-id") String patientId);
 
+    /**
+     * Updates the owner of a patient record - identified by `patientId` - with the owner specified in JSON. If the
+     * indicated patient record doesn't exist, or if the user sending the request doesn't have the right to edit the
+     * target patient record, no change is performed and an error is returned.
+     *
+     * @param json that contains a "id" property, with a value of either a fully qualified username or a plain username
+     * (eg. "xwiki:XWiki.username" or "username")
+     * @param patientId identifier of the patient, whose owner should be changed
+     * @return a status message
+     */
     @PUT
-    @Consumes(MediaType.APPLICATION_JSON)
-    Response putOwnerWithJson(String json, @PathParam("patient-id") String patientId);
+    @Consumes(MediaType.APPLICATION_JSON) Response putOwnerWithJson(String json,
+        @PathParam("patient-id") String patientId);
 
+    /**
+     * Updates the owner of a patient record - identified by `patientId` - with the owner specified in JSON. If the
+     * indicated patient record doesn't exist, or if the user sending the request doesn't have the right to edit the
+     * target patient record, no change is performed and an error is returned. The request must contain an "owner"
+     * field.
+     *
+     * @param patientId identifier of the patient, whose owner should be changed
+     * @return a status message
+     */
     @PUT
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    Response putOwnerWithForm(@PathParam("patient-id") String patientId);
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED) Response putOwnerWithForm(
+        @PathParam("patient-id") String patientId);
 }

@@ -17,7 +17,7 @@
  */
 package org.phenotips.data.permissions.rest;
 
-import org.phenotips.data.rest.model.PhenotipsUser;
+import org.phenotips.data.rest.model.CollaboratorRepresentation;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -29,28 +29,62 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 /**
- * ToDo.
+ * Resource for working with patient collaborators, one at a time. Collaborators are found by both the internal patient
+ * identifier and the internal collaborator identifier.
  *
  * @version $Id$
- * @since 1.2M5
+ * @since 1.3M1
  */
 @Path("/patients/{patient-id}/permissions/collaborators/{collaborator-id}")
 public interface CollaboratorResource
 {
     /**
-     * Todo. put a proper comment The missing javadoc comment
+     * Retrieves information about a particular collaborator. If the indicated patient record doesn't exist, or if the
+     * user sending the request doesn't have the right to view the target patient record, an error is returned.
+     *
+     * @param patientId internal identifier of a patient record
+     * @param collaboratorId fully qualified, internal id of a collaborator (ex. xwiki:XWiki.JohnAdams)
+     * @return REST representation of a single collaborator
      */
-    @GET PhenotipsUser getCollaborator(@PathParam("patient-id") String patientId,
+    @GET CollaboratorRepresentation getCollaborator(@PathParam("patient-id") String patientId,
         @PathParam("collaborator-id") String collaboratorId);
 
+    /**
+     * Updates the access level of a collaborator. If the indicated patient record doesn't exist, or if the user sending
+     * the request doesn't have the right to edit the target patient record, no change is performed and an error is
+     * returned.
+     *
+     * @param json must contain "level" property, with a value which is a valid access level
+     * @param patientId internal identifier of a patient record
+     * @param collaboratorId fully qualified, internal id of a collaborator (ex. xwiki:XWiki.JohnAdams)
+     * @return a status message
+     */
     @PUT
     @Consumes(MediaType.APPLICATION_JSON) Response putLevelWithJson(String json,
         @PathParam("patient-id") String patientId, @PathParam("collaborator-id") String collaboratorId);
 
+    /**
+     * Updates the access level of a collaborator. If the indicated patient record doesn't exist, or if the user sending
+     * the request doesn't have the right to edit the target patient record, no change is performed and an error is
+     * returned. The request must contain "level" property, with a value which is a valid access level.
+     *
+     * @param patientId internal identifier of a patient record
+     * @param collaboratorId fully qualified, internal id of a collaborator (ex. xwiki:XWiki.JohnAdams)
+     * @return a status message
+     */
     @PUT
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED) Response putLevelWithForm(
         @PathParam("patient-id") String patientId, @PathParam("collaborator-id") String collaboratorId);
 
+    /**
+     * Removes a particular collaborator from a patient record. If the indicated patient record doesn't exist, or if the
+     * user sending the request doesn't have the right to edit the target patient record, no change is performed and an
+     * error is returned.
+     *
+     * @param patientId internal identifier of a patient record
+     * @param collaboratorId fully qualified, internal id of a collaborator (ex. xwiki:XWiki.JohnAdams)
+     * @return a status message
+     */
     @DELETE Response deleteCollaborator(@PathParam("patient-id") String patientId,
         @PathParam("collaborator-id") String collaboratorId);
 }

@@ -31,6 +31,9 @@
   <properties>
     <!-- Fixme. Coverage. -->
     <coverage.instructionRatio>0.0</coverage.instructionRatio>
+    <!-- too many classes are instantiated in DefaultDomainObjectFactory,
+    but there isn't really a better place to instantiate them -->
+    <checkstyle.suppressions.location>${basedir}/src/checkstyle/checkstyle-suppressions.xml</checkstyle.suppressions.location>
   </properties>
 
   <dependencies>
@@ -137,12 +140,12 @@
     <dependency>
       <groupId>org.phenotips</groupId>
       <artifactId>patient-access-rules-api</artifactId>
-      <version>1.3-SNAPSHOT</version>
+      <version>${phenotips.version}</version>
     </dependency>
     <dependency>
       <groupId>org.phenotips</groupId>
       <artifactId>patient-data-rest</artifactId>
-      <version>1.3-SNAPSHOT</version>
+      <version>${phenotips.version}</version>
     </dependency>
   </dependencies>
 

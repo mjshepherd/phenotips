@@ -28,25 +28,17 @@ public final class Relations
     /** Relation for links pointing to the resource that returned the current representation. */
     public static final String SELF = "self";
 
+    /** Relation for links pointing to the main permissions representation. */
     public static final String PERMISSIONS = "https://phenotips.org/rel/permissions";
 
-    /** Relation for links pointing to the history of a resource. */
-    public static final String HISTORY = "https://phenotips.org/rel/history";
+    /** Relation for links pointing to the owner of a patient. */
+    public static final String OWNER = "https://phenotips.org/rel/owner";
+
+    /** Relation for links pointing to the visibility of a patient. */
+    public static final String VISIBILITY = "https://phenotips.org/rel/visibility";
 
     /** Relation for links pointing to a patient record. */
     public static final String PATIENT_RECORD = "https://phenotips.org/rel/patientRecord";
-
-    /** Relation for links pointing to a pedigree. */
-    public static final String PEDIGREE = "https://phenotips.org/rel/pedigree";
-
-    /** Relation for links pointing to a family. */
-    public static final String FAMILY = "https://phenotips.org/rel/family";
-
-    /** Relation for links pointing to a vocabulary. */
-    public static final String VOCABULARY = "https://phenotips.org/rel/vocabulary";
-
-    /** Relation for links pointing to a vocabulary term. */
-    public static final String VOCABULARY_TERM = "https://phenotips.org/rel/vocabularyTerm";
 
     /** Relation for links pointing to a collaborator. */
     public static final String COLLABORATOR = "https://phenotips.org/rel/collaborator";

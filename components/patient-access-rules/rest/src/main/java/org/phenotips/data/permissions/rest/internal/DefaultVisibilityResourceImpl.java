@@ -17,28 +17,23 @@
  */
 package org.phenotips.data.permissions.rest.internal;
 
-import org.phenotips.data.Patient;
-import org.phenotips.data.PatientRepository;
 import org.phenotips.data.permissions.PatientAccess;
 import org.phenotips.data.permissions.PermissionsManager;
 import org.phenotips.data.permissions.Visibility;
 import org.phenotips.data.permissions.rest.DomainObjectFactory;
+import org.phenotips.data.permissions.rest.PermissionsResource;
 import org.phenotips.data.permissions.rest.Relations;
 import org.phenotips.data.permissions.rest.VisibilityResource;
-import org.phenotips.data.permissions.script.SecurePatientAccess;
+import org.phenotips.data.permissions.rest.internal.utils.PatientAccessContext;
+import org.phenotips.data.permissions.rest.internal.utils.SecureContextFactory;
 import org.phenotips.data.rest.PatientResource;
 import org.phenotips.data.rest.model.Link;
-import org.phenotips.data.rest.model.PatientVisibility;
+import org.phenotips.data.rest.model.VisibilityRepresentation;
 
 import org.xwiki.component.annotation.Component;
 import org.xwiki.container.Container;
-import org.xwiki.model.reference.EntityReferenceResolver;
 import org.xwiki.rest.XWikiResource;
-import org.xwiki.security.authorization.AuthorizationManager;
-import org.xwiki.security.authorization.Right;
 import org.xwiki.text.StringUtils;
-import org.xwiki.users.User;
-import org.xwiki.users.UserManager;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -51,10 +46,10 @@ import org.slf4j.Logger;
 import net.sf.json.JSONObject;
 
 /**
- *
+ * Default implementation for {@link VisibilityResource} using XWiki's support for REST resources.
  *
  * @version $Id$
- * @since todo
+ * @since 1.3M1
  */
 @Component
 @Named("org.phenotips.data.permissions.rest.internal.DefaultVisibilityResourceImpl")
@@ -65,18 +60,7 @@ public class DefaultVisibilityResourceImpl extends XWikiResource implements Visi
     private Logger logger;
 
     @Inject
-    private PatientRepository repository;
-
-    @Inject
-    private AuthorizationManager access;
-
-    @Inject
-    private UserManager users;
-
-    /** Fills in missing reference fields with those from the current context document to create a full reference. */
-    @Inject
-    @Named("current")
-    private EntityReferenceResolver<String> currentResolver;
+    private SecureContextFactory secureContextFactory;
 
     @Inject
     private DomainObjectFactory factory;
@@ -88,28 +72,20 @@ public class DefaultVisibilityResourceImpl extends XWikiResource implements Visi
     private Container container;
 
     @Override
-    public PatientVisibility getVisibility(String patientId)
+    public VisibilityRepresentation getVisibility(String patientId)
     {
-        this.logger.debug("Retrieving patient record [{}] via REST", patientId);
-        Patient patient = this.repository.getPatientById(patientId);
-        if (patient == null) {
-            this.logger.debug("No such patient record: [{}]", patientId);
-            throw new WebApplicationException(Response.Status.NOT_FOUND);
-        }
-        User currentUser = this.users.getCurrentUser();
-        if (!this.access.hasAccess(Right.VIEW, currentUser == null ? null : currentUser.getProfileDocument(),
-            patient.getDocument())) {
-            this.logger.debug("View access denied to user [{}] on patient record [{}]", currentUser, patientId);
-            throw new WebApplicationException(Response.Status.FORBIDDEN);
-        }
+        this.logger.debug("Retrieving patient record's visibility [{}] via REST", patientId);
+        // besides getting the patient, checks that the user has view access
+        PatientAccessContext patientAccessContext = this.secureContextFactory.getContext(patientId, "view");
 
-        PatientVisibility result = this.factory.createPatientVisibility(patient);
+        VisibilityRepresentation result =
+            this.factory.createVisibilityRepresentation(patientAccessContext.getPatient());
 
         result.withLinks(new Link().withRel(Relations.SELF).withHref(this.uriInfo.getRequestUri().toString()),
             new Link().withRel(Relations.PATIENT_RECORD)
-                .withHref(this.uriInfo.getBaseUriBuilder().path(PatientResource.class).build(patientId).toString()));
-
-        // todo. put permissions link
+                .withHref(this.uriInfo.getBaseUriBuilder().path(PatientResource.class).build(patientId).toString()),
+            new Link().withRel(Relations.PERMISSIONS).withHref(this.uriInfo.getBaseUriBuilder()
+                .path(PermissionsResource.class).build(patientId).toString()));
 
         return result;
     }
@@ -140,7 +116,7 @@ public class DefaultVisibilityResourceImpl extends XWikiResource implements Visi
         throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
-    public Response putVisibility(String visibilityNameRaw, String patientId)
+    private Response putVisibility(String visibilityNameRaw, String patientId)
     {
         if (StringUtils.isBlank(visibilityNameRaw)) {
             this.logger.error("The visibility level was not provided");
@@ -162,25 +138,16 @@ public class DefaultVisibilityResourceImpl extends XWikiResource implements Visi
         }
 
         this.logger.debug(
-            "Setting owner of the patient record [{}] visibility to [{}] via REST", patientId, visibilityName);
-        Patient patient = this.repository.getPatientById(patientId);
-        if (patient == null) {
-            this.logger.debug("No such patient record: [{}]", patientId);
-            throw new WebApplicationException(Response.Status.NOT_FOUND);
-        }
-        User currentUser = this.users.getCurrentUser();
-        if (!this.access.hasAccess(Right.EDIT, currentUser == null ? null : currentUser.getProfileDocument(),
-            patient.getDocument())) {
-            this.logger.debug("Edit access denied to user [{}] on patient record [{}]", currentUser, patientId);
-            throw new WebApplicationException(Response.Status.FORBIDDEN);
-        }
+            "Setting the visibility of the patient record [{}] to [{}] via REST", patientId, visibilityName);
+        // besides getting the patient, checks that the user has manage access
+        PatientAccessContext patientAccessContext = this.secureContextFactory.getContext(patientId, "manage");
 
-        PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
+        PatientAccess patientAccess = patientAccessContext.getPatientAccess();
         if (!patientAccess.setVisibility(visibility)) {
             // todo. should this status be an internal server error, or a bad request?
             throw new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR);
         }
 
-        return Response.noContent().build();
+        return Response.ok().build();
     }
 }

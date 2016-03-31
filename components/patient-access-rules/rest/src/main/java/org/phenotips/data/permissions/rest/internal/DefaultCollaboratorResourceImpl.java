@@ -18,29 +18,25 @@
 package org.phenotips.data.permissions.rest.internal;
 
 import org.phenotips.data.Patient;
-import org.phenotips.data.PatientRepository;
+import org.phenotips.data.permissions.Collaborator;
 import org.phenotips.data.permissions.PatientAccess;
-import org.phenotips.data.permissions.PermissionsManager;
 import org.phenotips.data.permissions.rest.CollaboratorResource;
 import org.phenotips.data.permissions.rest.CollaboratorsResource;
 import org.phenotips.data.permissions.rest.DomainObjectFactory;
+import org.phenotips.data.permissions.rest.PermissionsResource;
 import org.phenotips.data.permissions.rest.Relations;
-import org.phenotips.data.permissions.script.SecurePatientAccess;
+import org.phenotips.data.permissions.rest.internal.utils.PatientAccessContext;
+import org.phenotips.data.permissions.rest.internal.utils.SecureContextFactory;
 import org.phenotips.data.rest.PatientResource;
+import org.phenotips.data.rest.model.CollaboratorRepresentation;
 import org.phenotips.data.rest.model.Link;
-import org.phenotips.data.rest.model.PhenotipsUser;
+import org.phenotips.groups.UserOrGroupResolver;
 
 import org.xwiki.component.annotation.Component;
 import org.xwiki.container.Container;
-import org.xwiki.model.EntityType;
 import org.xwiki.model.reference.EntityReference;
-import org.xwiki.model.reference.EntityReferenceResolver;
 import org.xwiki.rest.XWikiResource;
-import org.xwiki.security.authorization.AuthorizationManager;
-import org.xwiki.security.authorization.Right;
 import org.xwiki.text.StringUtils;
-import org.xwiki.users.User;
-import org.xwiki.users.UserManager;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -54,76 +50,81 @@ import org.slf4j.Logger;
 import net.sf.json.JSONObject;
 
 /**
- *
+ * Default implementation for {@link CollaboratorResource} using XWiki's support for REST resources.
  *
  * @version $Id$
- * @since todo
+ * @since 1.3M1
  */
 @Component
 @Named("org.phenotips.data.permissions.rest.internal.DefaultCollaboratorResourceImpl")
 @Singleton
 public class DefaultCollaboratorResourceImpl extends XWikiResource implements CollaboratorResource
 {
+    private static final String LEVEL = "level";
+
     @Inject
     private Logger logger;
 
     @Inject
-    private PatientRepository repository;
+    private SecureContextFactory secureContextFactory;
 
     @Inject
-    private AuthorizationManager access;
-
-    @Inject
-    private UserManager users;
-
-    /** Fills in missing reference fields with those from the current context document to create a full reference. */
-    @Inject
-    @Named("current")
-    private EntityReferenceResolver<String> currentResolver;
+    private UserOrGroupResolver userOrGroupResolver;
 
     @Inject
     private DomainObjectFactory factory;
 
     @Inject
-    private PermissionsManager manager;
-
-    @Inject
     private Container container;
 
-    @Override public PhenotipsUser getCollaborator(String patientId, String collaboratorId)
+    @Override
+    public CollaboratorRepresentation getCollaborator(String patientId, String collaboratorId)
     {
-        this.logger.debug("Retrieving collaborator with id [{}] of patient record [{}] via REST", collaboratorId, patientId);
-        Patient patient = this.getPatient(patientId);
-        // checks that the user has view rights, otherwise throws an exception
-        this.getCurrentUserWithRights(patient, Right.VIEW);
+        this.logger.debug(
+            "Retrieving collaborator with id [{}] of patient record [{}] via REST", collaboratorId, patientId);
+        // besides getting the patient, checks that the user has view access
+        PatientAccessContext patientAccessContext = this.secureContextFactory.getContext(patientId, "view");
 
+        CollaboratorRepresentation result;
         try {
-            PhenotipsUser result = this.factory.createCollaborator(patient, collaboratorId.trim());
-
-            // adding links relative to this context
-            result.getLinks().add(new Link().withRel(Relations.SELF).withHref(this.uriInfo.getRequestUri().toString()));
-            result.getLinks().add(new Link().withRel(Relations.PATIENT_RECORD)
-                .withHref(this.uriInfo.getBaseUriBuilder().path(PatientResource.class).build(patientId).toString()));
-            result.getLinks().add(new Link().withRel(Relations.COLLABORATORS).withHref(
-                this.uriInfo.getBaseUriBuilder().path(CollaboratorsResource.class).build(patientId).toString()));
-
-            // todo. add permissions link
-
-            return result;
-        } catch (Exception ex) {
-            throw new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR);
+            result = this.createCollaboratorRepresentation(patientAccessContext.getPatient(), collaboratorId.trim(),
+                patientAccessContext.getPatientAccess());
+        } catch (WebApplicationException ex) {
+            this.logger.debug("Collaborator of patient record [{}] with id [{}] was not found",
+                patientId, collaboratorId);
+            throw ex;
         }
+
+        // adding links relative to this context
+        result.getLinks().add(new Link().withRel(Relations.SELF).withHref(this.uriInfo.getRequestUri().toString()));
+        result.getLinks().add(new Link().withRel(Relations.PATIENT_RECORD)
+            .withHref(this.uriInfo.getBaseUriBuilder().path(PatientResource.class).build(patientId).toString()));
+        result.getLinks().add(new Link().withRel(Relations.COLLABORATORS).withHref(
+            this.uriInfo.getBaseUriBuilder().path(CollaboratorsResource.class).build(patientId).toString()));
+        result.getLinks().add(new Link().withRel(Relations.PERMISSIONS).withHref(
+            this.uriInfo.getBaseUriBuilder().path(PermissionsResource.class).build(patientId).toString()));
+
+        return result;
     }
 
-    @Override public Response putLevelWithJson(String json, String patientId, String collaboratorId)
+    @Override
+    public Response putLevelWithJson(String json, String patientId, String collaboratorId)
     {
-        // todo. will null pointer throw the correct exception
-        return putLevel(collaboratorId.trim(), JSONObject.fromObject(json).optString("level"), patientId);
+        String level;
+        try {
+            JSONObject jsonObject = JSONObject.fromObject(json);
+            level = jsonObject.getString(LEVEL);
+        } catch (Exception ex) {
+            this.logger.debug("Changing collaborator's access level failed: the JSON was not properly formatted");
+            throw new WebApplicationException(Response.Status.BAD_REQUEST);
+        }
+        return putLevel(collaboratorId.trim(), level, patientId);
     }
 
-    @Override public Response putLevelWithForm(String patientId, String collaboratorId)
+    @Override
+    public Response putLevelWithForm(String patientId, String collaboratorId)
     {
-        Object levelInRequest = container.getRequest().getProperty("level");
+        Object levelInRequest = container.getRequest().getProperty(LEVEL);
         if (levelInRequest instanceof String) {
             String level = levelInRequest.toString().trim();
             if (StringUtils.isNotBlank(level)) {
@@ -134,51 +135,53 @@ public class DefaultCollaboratorResourceImpl extends XWikiResource implements Co
         throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
-    @Override public Response deleteCollaborator(String patientId, String collaboratorId)
+    @Override
+    public Response deleteCollaborator(String patientId, String collaboratorId)
     {
         this.logger.debug(
             "Removing collaborator with id [{}] from patient record [{}] via REST", collaboratorId, patientId);
-        Patient patient = this.getPatient(patientId);
-        // checks that the user has view rights, otherwise throws an exception
-        this.getCurrentUserWithRights(patient, Right.EDIT);
+        // besides getting the patient, checks that the user has manage access
+        PatientAccessContext patientAccessContext = this.secureContextFactory.getContext(patientId, "manage");
 
-        PatientAccess patientAccess = new SecurePatientAccess(this.manager.getPatientAccess(patient), this.manager);
-        EntityReference collaboratorReference = this.currentResolver.resolve(
-            collaboratorId, EntityType.DOCUMENT, new EntityReference("XWiki", EntityType.SPACE));
+        PatientAccess patientAccess = patientAccessContext.getPatientAccess();
+        EntityReference collaboratorReference = this.userOrGroupResolver.resolve(collaboratorId);
+        if (collaboratorReference == null) {
+            // what would be a better status to indicate that the user/group id is not valid?
+            // ideally, the status page should show some sort of a message indicating that the id was not found
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        }
 
         if (!patientAccess.removeCollaborator(collaboratorReference)) {
             this.logger.error("Could not remove collaborator [{}] from patient record [{}]", collaboratorId, patientId);
             throw new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR);
         }
 
-        return Response.noContent().build();
+        return Response.ok().build();
     }
 
-    public Response putLevel(String collaboratorId, String accessLevelName, String patientId)
+    private CollaboratorRepresentation createCollaboratorRepresentation(Patient patient, String id,
+        PatientAccess patientAccess)
+    {
+        String collaboratorId = id.trim();
+        // check if the space reference is used more than once in this class
+        EntityReference collaboratorReference = this.userOrGroupResolver.resolve(collaboratorId);
+        if (collaboratorReference == null) {
+            // what would be a better status to indicate that the user/group id is not valid?
+            // ideally, the status page should show some sort of a message indicating that the id was not found
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        }
+
+        for (Collaborator collaborator : patientAccess.getCollaborators()) {
+            if (collaboratorReference.equals(collaborator.getUser())) {
+                return this.factory.createCollaboratorRepresentation(patient, collaborator);
+            }
+        }
+        // same here
+        throw new WebApplicationException(Response.Status.NOT_FOUND);
+    }
+
+    private Response putLevel(String collaboratorId, String accessLevelName, String patientId)
     {
         throw new NotImplementedException();
     }
-
-    private Patient getPatient(String patientId)
-    {
-        Patient patient = this.repository.getPatientById(patientId);
-        if (patient == null) {
-            this.logger.debug("No such patient record: [{}]", patientId);
-            throw new WebApplicationException(Response.Status.NOT_FOUND);
-        }
-        return patient;
-    }
-
-    private User getCurrentUserWithRights(Patient patient, Right right)
-    {
-        User currentUser = this.users.getCurrentUser();
-        if (!this.access.hasAccess(right, currentUser == null ? null : currentUser.getProfileDocument(),
-            patient.getDocument())) {
-            this.logger.debug("{} access denied to user [{}] on patient record [{}]",
-                right, currentUser, patient.getId());
-            throw new WebApplicationException(Response.Status.FORBIDDEN);
-        }
-        return currentUser;
-    }
-
 }
