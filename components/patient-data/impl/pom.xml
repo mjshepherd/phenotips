@@ -29,7 +29,8 @@
   <name>PhenoTips - Patient data - Default implementation for the Java APIs</name>
 
   <properties>
-    <coverage.instructionRatio>0.51</coverage.instructionRatio>
+    <coverage.instructionRatio>0.47</coverage.instructionRatio>
+    <checkstyle.suppressions.location>${basedir}/src/checkstyle/checkstyle-suppressions.xml</checkstyle.suppressions.location>
   </properties>
 
   <dependencies>
@@ -73,6 +74,11 @@
       <version>${xwiki.version}</version>
     </dependency>
     <dependency>
+      <groupId>org.xwiki.commons</groupId>
+      <artifactId>xwiki-commons-script</artifactId>
+      <version>${xwiki.version}</version>
+    </dependency>
+    <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>patient-data-api</artifactId>
       <version>${project.version}</version>
@@ -98,9 +104,8 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>net.sf.json-lib</groupId>
-      <artifactId>json-lib</artifactId>
-      <classifier>jdk15</classifier>
+      <groupId>org.json</groupId>
+      <artifactId>json</artifactId>
     </dependency>
     <dependency>
       <groupId>joda-time</groupId>
